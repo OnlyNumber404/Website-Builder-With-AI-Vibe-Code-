@@ -1,0 +1,18 @@
+{
+  "name": "ai-custom-website-builder-prototype",
+  "version": "1.0.0",
+  "description": "AI Custom Website Builder for Non-Tech Small Businesses (Prototype) - In-Memory Store & Google AI Studio Gemini API",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve -l 3000 ."
+  },
+  "keywords": [
+    "ai",
+    "website-builder",
+    "gemini",
+    "umkm",
+    "in-memory"
+  ],
+  "author": "UMKM Prototype Team",
+  "license": "MIT"
+}

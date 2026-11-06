@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Website Builder - Bikin Website Praktis Tanpa Koding (Prototype)</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#334155',
+              700: '#0f172a',
+              800: '#090d16',
+              900: '#020617',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased h-full flex flex-col overflow-hidden m-0 p-0 select-none">
+
+  <!-- =========================================================================
+       1. SCREEN LOGIN OTENTIKASI (AC-2.1, AC-2.2, AC-2.3, AC-2.4)
+       ========================================================================= -->
+  <div id="loginScreen" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900 bg-opacity-90 px-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border border-slate-200">
+      
+      <!-- Brand & Icon -->
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-900 text-white mb-3 shadow-md">
+          <i data-lucide="sparkles" class="w-7 h-7 text-amber-400"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">AI Website Builder</h1>
+        <p class="text-xs text-slate-500 mt-1">Platform Pembuat Website Praktis Tanpa Koding (Prototype)</p>
+      </div>
+
+      <!-- Informasi Akun Terkonfigurasi (AC-2.2) -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-5 flex items-start gap-2.5 text-xs text-slate-600">
+        <i data-lucide="info" class="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <span class="font-bold text-slate-800">Mode Demo Single-User (AC-2.2):</span>
+          <p class="mt-0.5">Email: <code class="bg-slate-200/70 px-1 py-0.5 rounded font-mono font-bold text-slate-800">pemilik@umkm.id</code></p>
+          <p>Kata Sandi: <code class="bg-slate-200/70 px-1 py-0.5 rounded font-mono font-bold text-slate-800">demo123</code></p>
+        </div>
+      </div>
+
+      <!-- Pesan Kesalahan Login (AC-2.3) -->
+      <div id="loginErrorAlert" class="hidden mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+        <span id="loginErrorMessage">Email atau kata sandi tidak sesuai.</span>
+      </div>
+
+      <!-- Form Login -->
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1" for="loginEmail">Email Pengguna / Akun Demo</label>
+          <div class="relative">
+            <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+            <input 
+              type="email" 
+              id="loginEmail" 
+              required 
+              placeholder="pemilik@umkm.id" 
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 text-slate-800 text-sm placeholder-slate-400 transition"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1" for="loginPassword">Kata Sandi</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3"></i>
+            <input 
+              type="password" 
+              id="loginPassword" 
+              required 
+              placeholder="••••••••" 
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 text-slate-800 text-sm placeholder-slate-400 transition"
+            />
+          </div>
+        </div>
+
+        <button 
+          type="submit" 
+          class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center gap-2 text-sm"
+        >
+          <span>Masuk ke Canvas Editor</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+
+        <button 
+          type="button" 
+          id="btnQuickFillLogin" 
+          class="w-full py-2 px-3 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition border border-slate-200"
+        >
+          Isi Otomatis Kredensial Demo
+        </button>
+      </form>
+
+      <div class="mt-6 text-center text-xs text-slate-400">
+        Google AI Studio • In-Memory Architecture • No Database
+      </div>
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       2. TOP NAVIGATION / HEADER (FIXED TOP)
+       ========================================================================= -->
+  <header id="mainHeader" class="flex-shrink-0 bg-white border-b border-slate-200/80 sticky top-0 z-40 px-4 py-2.5 shadow-2xs">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Brand & Mode Title -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-8.5 h-8.5 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold shadow-xs">
+          <i data-lucide="sparkles" class="w-4.5 h-4.5 text-amber-400"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="font-bold text-slate-900 text-sm sm:text-base leading-tight tracking-tight">AI Website Builder</h2>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200/70">Canvas Studio</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Solusi Buat Website Praktis untuk Siapa Saja • 100% Tanpa Koding</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Controls & Toolbar -->
+      <div class="flex items-center flex-wrap gap-1.5 sm:gap-2">
+        
+        <!-- Toggle Palet Samping -->
+        <button 
+          id="btnToggleSidebar" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+          title="Tampilkan / sembunyikan palet item"
+        >
+          <i data-lucide="panel-left" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span id="btnToggleSidebarText">Palet Item</span>
+        </button>
+
+        <!-- Toggle Mode Editor vs Fullscreen (AC-5.3) -->
+        <button 
+          id="btnToggleMode" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+          title="Beralih ke mode pratinjau penuh atau editor"
+        >
+          <i data-lucide="maximize" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span id="modeButtonText">Preview Fullscreen</span>
+        </button>
+
+        <!-- Toggle Tampilkan / Sembunyikan Bilah Prompt AI -->
+        <button 
+          id="btnToggleAiDock" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+          title="Tampilkan atau sembunyikan bilah perintah AI di bawah agar layar lega"
+        >
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span id="btnToggleAiDockText">Tutup Chat AI</span>
+        </button>
+
+        <!-- Tombol Gaya Desain: Pilihan Template Layout (Dengan Rekomendasi Terbaik) -->
+        <button 
+          id="btnDesignTemplates" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+          title="Pilih contoh template gaya desain website (Dilengkapi Rekomendasi Terbaik)"
+        >
+          <i data-lucide="layout-template" class="w-3.5 h-3.5 text-slate-600"></i>
+          <span>Gaya Desain</span>
+          <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200/60 ml-0.5">
+            ★ Rekomendasi
+          </span>
+        </button>
+
+        <!-- Tombol Gaya Desain: Warna & Font -->
+        <button 
+          id="btnThemeSettings" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+          title="Ubah tema warna halaman, warna teks, tombol, dan jenis font website"
+        >
+          <i data-lucide="palette" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>Warna & Font</span>
+        </button>
+
+        <!-- Tambah Section Manual (D3) - Primary Action -->
+        <button 
+          id="btnAddSectionManual" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition shadow-sm hover:shadow-md hover:shadow-slate-900/30 hover:-translate-y-0.5"
+        >
+          <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+          <span>Tambah Bagian</span>
+        </button>
+
+        <!-- Kelola Menu Produk Manual (D3) -->
+        <button 
+          id="btnManageProducts" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+        >
+          <i data-lucide="utensils" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span>Kelola Menu</span>
+        </button>
+
+        <!-- Tombol Reset Demo Data (AC-5.4) -->
+        <button 
+          id="btnResetDemo" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-500 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50/50 transition shadow-2xs hover:shadow-md hover:shadow-rose-500/10 hover:-translate-y-0.5"
+          title="Kembalikan struktur data ke kondisi awal"
+        >
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Reset Demo</span>
+        </button>
+
+        <!-- Tombol Pengaturan API -->
+        <button 
+          id="btnOpenApiSettings" 
+          class="header-toolbar-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300"
+          title="Pengaturan Google AI Studio Gemini API Key"
+        >
+          <i data-lucide="key" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span class="relative flex h-2 w-2 mr-0.5">
+            <span id="apiKeyDotPing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span id="apiKeyDot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+          </span>
+          <span>API Key</span>
+        </button>
+
+        <!-- Tombol Logout -->
+        <button 
+          id="btnLogout" 
+          class="header-toolbar-btn inline-flex items-center p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition hover:shadow-sm hover:-translate-y-0.5"
+          title="Keluar dari sesi editor"
+        >
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- =========================================================================
+       3. WORKSPACE UTAMA (PALET KIRI + KANVAS PREVIEW BISA DI-SCROLL DENGAN BEBAS)
+       ========================================================================= -->
+  <div class="flex-1 flex min-h-0 overflow-hidden relative">
+
+    <!-- =====================================================================
+         A. SIDEBAR PALET ITEM (DRAG & DROP)
+         ===================================================================== -->
+    <aside id="itemSidebar" class="w-80 md:w-84 bg-white border-r border-slate-200 shadow-2xs flex flex-col flex-shrink-0 min-h-0 overflow-hidden z-20 transition-all duration-300">
+      
+      <!-- Header Sidebar -->
+      <div class="p-3 border-b border-slate-100 bg-white flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <div class="p-1.5 bg-slate-100 text-slate-700 rounded-lg">
+            <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-xs text-slate-900 leading-tight">Palet Item & Bagian</h3>
+            <p class="text-[10px] text-slate-500">Tarik kartu ke kanvas di sebelah kanan</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Switcher -->
+      <div class="flex border-b border-slate-100 bg-slate-100/70 p-1 gap-1 flex-shrink-0">
+        <button 
+          id="tabItemsBtn" 
+          class="flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-slate-900 shadow-xs border border-slate-200/50"
+        >
+          <i data-lucide="utensils" class="w-3.5 h-3.5 text-slate-600"></i>
+          <span>Item Produk</span>
+        </button>
+        <button 
+          id="tabSectionsBtn" 
+          class="flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 text-slate-500 hover:text-slate-800"
+        >
+          <i data-lucide="layout" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>Bagian Web</span>
+        </button>
+      </div>
+
+      <!-- TAB 1: KONTEN ITEM PRODUK -->
+      <div id="tabItemsContent" class="flex-1 min-h-0 overflow-y-auto p-3 pb-36 space-y-3">
+        
+        <!-- Form Cepat Buat Item Baru -->
+        <div class="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3">
+          <span class="text-[11px] font-bold text-slate-800 flex items-center gap-1 mb-2">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-slate-500"></i>
+            Buat Item Sendiri:
+          </span>
+          <form id="formQuickSidebarAdd" class="space-y-2">
+            <input 
+              type="text" 
+              id="quickItemName" 
+              placeholder="Nama menu (misal: Sate Padang)" 
+              required 
+              class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition text-slate-800 placeholder-slate-400"
+            />
+            <div class="grid grid-cols-2 gap-2">
+              <input 
+                type="text" 
+                id="quickItemPrice" 
+                placeholder="Harga (misal: 25.000)" 
+                required 
+                class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition text-slate-800 placeholder-slate-400"
+              />
+              <select 
+                id="quickItemCategory" 
+                class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 transition text-slate-800 font-medium cursor-pointer"
+              >
+                <option value="Makanan Utama">Makanan Utama</option>
+                <option value="Minuman Segar">Minuman Segar</option>
+                <option value="Camilan & Snack">Camilan &amp; Snack</option>
+                <option value="Paket Hemat">Paket Hemat</option>
+                <option value="Menu Spesial">Menu Spesial</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+            <button 
+              type="submit" 
+              class="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs transition flex items-center justify-center gap-1"
+            >
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Simpan ke Palet</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="flex items-center justify-between px-1 mb-1">
+          <span class="inline-flex items-center gap-1.5 font-bold text-xs text-slate-800">
+            <i data-lucide="hand" class="w-3.5 h-3.5 text-indigo-600"></i>
+            Item Siap Di-Drag:
+          </span>
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+            <i data-lucide="move" class="w-2.5 h-2.5"></i>
+            Tarik ke kanvas
+          </span>
+        </div>
+
+        <!-- Container Daftar Item Draggable -->
+        <div id="sidebarDraggableItemsList" class="space-y-2">
+          <!-- Diisi via renderSidebarItems() -->
+        </div>
+      </div>
+
+      <!-- TAB 2: KONTEN BAGIAN WEBSITE -->
+      <div id="tabSectionsContent" class="hidden flex-1 min-h-0 overflow-y-auto p-3 pb-36 space-y-2">
+        <div class="flex items-center justify-between px-1 mb-1">
+          <span class="inline-flex items-center gap-1.5 font-bold text-xs text-slate-800">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>
+            Komponen Siap Di-Drag:
+          </span>
+          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+            <i data-lucide="move" class="w-2.5 h-2.5"></i>
+            Tarik ke kanvas
+          </span>
+        </div>
+        <div id="sidebarDraggableSectionsList" class="space-y-2">
+          <!-- Diisi via renderSidebarSections() -->
+        </div>
+      </div>
+
+      <div class="p-2 border-t border-slate-200 bg-slate-50 text-[10px] text-slate-500 flex items-center justify-between flex-shrink-0">
+        <span>💡 Klik <strong>"+ Taruh"</strong> atau tarik mouse</span>
+      </div>
+    </aside>
+
+
+    <!-- =====================================================================
+         B. CANVAS PREVIEW UTAMA (SCROLL AREA)
+         ===================================================================== -->
+    <main id="mainCanvasArea" class="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 bg-slate-100/90 relative" style="overflow-y: scroll; -webkit-overflow-scrolling: touch;">
+      <div class="max-w-4xl mx-auto pb-48">
+        
+        <!-- Banner Status Editor -->
+        <div id="editorStatusBar" class="mb-4 bg-white/95 backdrop-blur rounded-xl p-3 border border-slate-200/80 flex items-center justify-between text-xs text-slate-600 shadow-2xs">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Status: <strong class="text-slate-800">Kanvas Siap Digunakan</strong></span>
+            <span class="text-slate-200">|</span>
+            <span id="statSectionCount">Total Bagian: 5</span>
+            <span class="text-slate-200">|</span>
+            <span id="statProductCount">Total Menu: 4</span>
+          </div>
+          <div class="hidden sm:flex items-center gap-1.5 text-slate-400">
+            <i data-lucide="move" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span>Scroll ke bawah untuk melihat seluruh halaman</span>
+          </div>
+        </div>
+
+        <!-- KANVAS WEBSITE PREVIEW AKTIF -->
+        <div id="canvasContainer" class="canvas-paper rounded-2xl overflow-hidden border border-slate-200/90 shadow-xl flex flex-col bg-white">
+          <!-- Render otomatis via JavaScript (renderCanvas) -->
+          <div id="canvasSectionsWrapper" class="divide-y divide-slate-100 flex-1">
+            <!-- Komponen Section dinamis akan dimuat di sini -->
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- C. PANEL CHAT AI KANAN (ASISTEN COPILOT GEMINI) -->
+    <aside 
+      id="aiPromptDock" 
+      class="w-80 sm:w-88 md:w-96 flex-shrink-0 bg-white border-l border-slate-200/90 flex flex-col h-full z-20 shadow-lg md:shadow-none transition-all duration-300 relative select-text"
+    >
+      
+      <!-- 1. Header Panel Chat AI -->
+      <div class="p-3 border-b border-slate-100 flex items-center justify-between bg-white flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-indigo-50 border border-indigo-200/70 text-indigo-600 flex items-center justify-center font-bold">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h3 class="font-bold text-xs text-slate-800 leading-tight">Asisten Gemini AI</h3>
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            </div>
+            <p class="text-[10px] text-slate-400">Copilot Pembuat Website Praktis</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <!-- Tombol Bersihkan Percakapan -->
+          <button 
+            type="button" 
+            id="btnAiClearChat" 
+            class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition" 
+            title="Bersihkan riwayat percakapan"
+          >
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          </button>
+
+          <!-- Tombol Tutup Panel Samping (Sesuai X pada gambar referensi) -->
+          <button 
+            type="button" 
+            id="btnMinimizeAiDock" 
+            class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition" 
+            title="Tutup Panel Chat AI"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. Area Scrollable Percakapan & Greeting (Sesuai Referensi Gambar) -->
+      <div id="aiChatScrollArea" class="flex-1 min-h-0 overflow-y-auto flex flex-col justify-between p-3 space-y-4">
+        
+        <!-- Riwayat Bubble Pesan Percakapan -->
+        <div id="aiChatMessagesList" class="space-y-3">
+          <!-- Pesan pengguna & aksi AI dirender di sini via JavaScript -->
+        </div>
+
+        <!-- Greeting Kata-kata di Tengah (Tanpa Logo di Tengah, Sesuai Permintaan Pengguna) -->
+        <div id="aiEmptyStateGreeting" class="my-auto py-6 px-1 text-center space-y-4">
+          <div class="space-y-1">
+            <h3 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight leading-snug">
+              Ada yang bisa dibantu untuk websitemu?
+            </h3>
+            <p class="text-xs text-slate-500 max-w-xs mx-auto">
+              Ketik perintah langsung atau pilih contoh ide cepat di bawah ini
+            </p>
+          </div>
+
+          <!-- Suggestion Pills Bertumpuk Vertikal (Sesuai Referensi Gambar) -->
+          <div class="flex flex-col gap-2 pt-2 text-left">
+            <button type="button" class="quick-prompt-pill group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-300 text-xs font-semibold text-slate-700 hover:text-indigo-900 transition-all shadow-2xs hover:shadow-xs">
+              <span class="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="truncate">Tambah item Soto Betawi Daging harga 35000</span>
+            </button>
+
+            <button type="button" class="quick-prompt-pill group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-300 text-xs font-semibold text-slate-700 hover:text-indigo-900 transition-all shadow-2xs hover:shadow-xs">
+              <span class="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <i data-lucide="palette" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="truncate">Ganti tema jadi kopi tradisional hangat</span>
+            </button>
+
+            <button type="button" class="quick-prompt-pill group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-300 text-xs font-semibold text-slate-700 hover:text-indigo-900 transition-all shadow-2xs hover:shadow-xs">
+              <span class="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <i data-lucide="layout-template" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="truncate">Ganti gaya desain ke warung modern</span>
+            </button>
+
+            <button type="button" class="quick-prompt-pill group flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/80 hover:border-indigo-300 text-xs font-semibold text-slate-700 hover:text-indigo-900 transition-all shadow-2xs hover:shadow-xs">
+              <span class="w-6 h-6 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-indigo-600 flex-shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+              </span>
+              <span class="truncate">Perbarui nomor WhatsApp pemesanan toko</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 3. Bottom Pinned Section (Sesuai Referensi Gambar) -->
+      <div class="p-3 border-t border-slate-100 bg-white flex-shrink-0 space-y-2">
+        
+        <!-- Disclaimer Card (Sesuai Kotak Abu-abu pada Referensi Gambar) -->
+        <div id="aiDisclaimerBox" class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[10px] text-slate-500 relative flex items-start justify-between gap-2">
+          <p class="leading-relaxed">
+            Ditenagai <strong>Google AI Studio</strong>. AI dapat merombak teks, tema, dan katalog secara otomatis. <a href="#" id="linkOpenApiFromChat" class="text-indigo-600 font-semibold hover:underline">Kelola Key</a>
+          </p>
+          <button type="button" id="btnCloseDisclaimer" class="text-slate-400 hover:text-slate-600 p-0.5">
+            <i data-lucide="x" class="w-3 h-3"></i>
+          </button>
+        </div>
+
+        <!-- Input Box Card (Membulat Elegan Sesuai Screenshot) -->
+        <div class="rounded-2xl border border-slate-200/90 bg-white shadow-2xs focus-within:border-slate-800 focus-within:ring-2 focus-within:ring-slate-900/5 transition">
+          
+          <!-- Baris Header Input Context -->
+          <div class="flex items-center justify-between px-3 pt-2 text-[10px] text-slate-500 border-b border-slate-100 pb-1.5">
+            <div class="flex items-center gap-1.5 truncate">
+              <i data-lucide="globe" class="w-3 h-3 text-slate-400 flex-shrink-0"></i>
+              <span class="truncate">Target: <strong>Kanvas Website Aktif</strong></span>
+            </div>
+            <span id="activeSourceIndicator" class="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/60 flex-shrink-0">Online</span>
+          </div>
+
+          <!-- Form Prompt -->
+          <form id="aiPromptForm" class="p-2 space-y-1.5">
+            <textarea 
+              id="promptInput" 
+              rows="2" 
+              placeholder="Ketik instruksi apa saja untuk AI (misal: 'Tambah es jeruk harga 8000')..." 
+              class="w-full px-2 py-1 text-xs sm:text-sm bg-transparent border-0 focus:ring-0 focus:outline-none resize-none text-slate-800 placeholder-slate-400 font-medium leading-relaxed"
+              autocomplete="off"
+            ></textarea>
+
+            <div class="flex items-center justify-between pt-1 border-t border-slate-100">
+              <div class="flex items-center gap-1.5">
+                <button 
+                  type="button" 
+                  id="btnQuickHelpPrompt"
+                  title="Bantuan cepat instruksi"
+                  class="w-6 h-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition"
+                >
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                </button>
+                <span class="text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1 border border-slate-200/60">
+                  <i data-lucide="cpu" class="w-3 h-3 text-indigo-600"></i>
+                  <span>Gemini Flash</span>
+                </span>
+              </div>
+
+              <button 
+                type="submit" 
+                id="btnSubmitPrompt" 
+                class="inline-flex items-center justify-center gap-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50"
+              >
+                <span id="btnSubmitText">Kirim</span>
+                <i data-lucide="send" id="btnSubmitIcon" class="w-3.5 h-3.5"></i>
+                <svg id="aiSpinner" class="hidden animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </button>
+            </div>
+          </form>
+
+        </div>
+
+      </div>
+
+    </aside>
+
+    <!-- Tombol Melayang Muncul Saat Chat AI Disembunyikan -->
+    <button 
+      type="button" 
+      id="btnFloatingOpenAiDock" 
+      class="hidden fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-full shadow-xl transition transform hover:scale-105 border border-slate-700/50"
+      title="Buka panel Chat AI"
+    >
+      <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+      <span>Buka Chat AI</span>
+    </button>
+
+  </div>
+
+
+  
+
+
+  <!-- =========================================================================
+       5. MODAL: EDIT SECTION MANUAL
+       ========================================================================= -->
+  <div id="modalEditSection" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between mb-2 border-b pb-3 flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-5 h-5 text-brand-700"></i>
+          <h3 class="text-base font-bold text-slate-900">Edit Komponen Website</h3>
+        </div>
+        <button type="button" class="btnCloseModal text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formEditSection" class="space-y-4 overflow-y-auto flex-1 p-3.5 sm:p-4">
+        <input type="hidden" id="editSectionId">
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Pilih Jenis Bagian</label>
+          <select id="editSectionType" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-slate-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+            <option value="HERO">HERO (Banner Sambutan & Judul Utama Toko)</option>
+            <option value="ABOUT">ABOUT (Cerita Profil & Keunggulan Usaha)</option>
+            <option value="CATALOG">CATALOG (Etalase Daftar Menu & Produk)</option>
+            <option value="CONTACT">CONTACT (Kontak WhatsApp, Alamat & Jam Buka)</option>
+            <option value="FOOTER">FOOTER (Catatan Kaki & Hak Cipta)</option>
+          </select>
+        </div>
+
+        <!-- Banner Petunjuk Sesuai Tipe Bagian -->
+        <div id="editSectionTip" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex items-start gap-2">
+          <i data-lucide="lightbulb" class="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5"></i>
+          <span id="editSectionTipText">Petunjuk pengisian bagian ini...</span>
+        </div>
+
+        <!-- Field 1: Judul -->
+        <div>
+          <label id="editTitleLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Nama Usaha / Judul Bagian</label>
+          <p id="editTitleHelper" class="text-[11px] text-slate-500 mb-1.5">Nama toko atau judul utama yang akan tampil mencolok</p>
+          <input type="text" id="editSectionTitle" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition" required>
+        </div>
+
+        <!-- Field 2: Subjudul -->
+        <div>
+          <label id="editSubtitleLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Slogan / Subjudul Pendukung</label>
+          <p id="editSubtitleHelper" class="text-[11px] text-slate-500 mb-1.5">Kalimat singkat penjelas keistimewaan usaha Anda</p>
+          <input type="text" id="editSectionSubtitle" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+        </div>
+
+        <!-- Box Khusus Kontak (Tampil khusus saat memilih CONTACT) -->
+        <div id="editContactBox" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div class="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
+            <i data-lucide="phone-call" class="w-4 h-4 text-emerald-600"></i>
+            <span>Detail Lengkap Kontak & Lokasi Usaha:</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Nomor WhatsApp / Telepon</label>
+            <input type="text" id="editContactPhone" placeholder="Contoh: 0812-3456-7890" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Alamat Lengkap Toko / Warung</label>
+            <input type="text" id="editContactAddress" placeholder="Contoh: Jl. Kenanga No. 24, RT 02/05, Pasar Minggu, Jakarta Selatan" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Jam Buka / Jadwal Operasional</label>
+            <input type="text" id="editContactHours" placeholder="Contoh: Buka Setiap Hari: 08.00 - 20.00 WIB" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition">
+          </div>
+        </div>
+
+        <!-- Field 3: Konten / Isi Teks Lengkap -->
+        <div>
+          <label id="editContentLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Isi Teks / Penjelasan</label>
+          <p id="editContentHelper" class="text-[11px] text-slate-500 mb-1.5">Penjelasan lengkap mengenai bagian ini</p>
+          <textarea id="editSectionContent" rows="3" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
+          <button type="button" class="btnCloseModal px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
+          <button type="submit" class="px-5 py-2 text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       6. MODAL: TAMBAH SECTION MANUAL
+       ========================================================================= -->
+  <div id="modalAddSection" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 border border-slate-200 max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between mb-2 border-b pb-3 flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i>
+          <h3 class="text-base font-bold text-slate-900">Tambah Bagian Baru ke Website</h3>
+        </div>
+        <button type="button" class="btnCloseModal text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formAddSection" class="space-y-4 overflow-y-auto flex-1 p-3.5 sm:p-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Pilih Jenis Bagian</label>
+          <select id="addSectionType" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-slate-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+            <option value="ABOUT">ABOUT (Cerita Profil & Keunggulan Usaha)</option>
+            <option value="CONTACT">CONTACT (Kontak WhatsApp, Alamat & Jam Buka)</option>
+            <option value="CATALOG">CATALOG (Etalase Daftar Menu & Produk)</option>
+            <option value="HERO">HERO (Banner Sambutan & Judul Toko)</option>
+            <option value="FOOTER">FOOTER (Catatan Kaki & Hak Cipta)</option>
+          </select>
+        </div>
+
+        <!-- Banner Petunjuk Sesuai Tipe Bagian -->
+        <div id="addSectionTip" class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 flex items-start gap-2">
+          <i data-lucide="lightbulb" class="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5"></i>
+          <span id="addSectionTipText">Petunjuk pengisian bagian ini...</span>
+        </div>
+
+        <!-- Field 1: Judul -->
+        <div>
+          <label id="addTitleLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Judul Cerita Usaha</label>
+          <p id="addTitleHelper" class="text-[11px] text-slate-500 mb-1.5">Nama toko atau judul utama yang tampil di bagian ini</p>
+          <input type="text" id="addSectionTitle" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition" required>
+        </div>
+
+        <!-- Field 2: Subjudul -->
+        <div>
+          <label id="addSubtitleLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Subjudul / Slogan Pendukung</label>
+          <p id="addSubtitleHelper" class="text-[11px] text-slate-500 mb-1.5">Kalimat singkat penjelas keistimewaan usaha Anda</p>
+          <input type="text" id="addSectionSubtitle" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+        </div>
+
+        <!-- Box Khusus Kontak (Tampil khusus saat memilih CONTACT) -->
+        <div id="addContactBox" class="hidden bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div class="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
+            <i data-lucide="phone-call" class="w-4 h-4 text-emerald-600"></i>
+            <span>Detail Lengkap Kontak & Lokasi Usaha:</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Nomor WhatsApp / Telepon</label>
+            <input type="text" id="addContactPhone" placeholder="Contoh: 0812-3456-7890" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Alamat Lengkap Toko / Warung</label>
+            <input type="text" id="addContactAddress" placeholder="Contoh: Jl. Kenanga No. 24, RT 02/05, Pasar Minggu, Jakarta Selatan" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Jam Buka / Jadwal Operasional</label>
+            <input type="text" id="addContactHours" placeholder="Contoh: Buka Setiap Hari: 08.00 - 20.00 WIB" class="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-600 transition">
+          </div>
+        </div>
+
+        <!-- Field 3: Konten / Isi Teks Lengkap -->
+        <div>
+          <label id="addContentLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Isi Cerita / Teks Lengkap</label>
+          <p id="addContentHelper" class="text-[11px] text-slate-500 mb-1.5">Tuliskan penjelasan detail yang ingin Anda sampaikan</p>
+          <textarea id="addSectionContent" rows="3" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
+          <button type="button" class="btnCloseModal px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Batal</button>
+          <button type="submit" class="px-5 py-2 text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition">Tambahkan ke Website</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       7. MODAL: KELOLA MENU & PRODUK
+       ========================================================================= -->
+  <div id="modalManageProducts" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between mb-4 border-b pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="utensils" class="w-5 h-5 text-amber-600"></i>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Kelola Daftar Menu & Produk (List&lt;Product&gt;)</h3>
+            <p class="text-xs text-slate-500">Tersimpan dalam In-Memory Store lokal aplikasi</p>
+          </div>
+        </div>
+        <button type="button" class="btnCloseModal text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form Tambah Produk Cepat -->
+      <form id="formAddProduct" class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4 grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nama Menu</label>
+          <input type="text" id="newProdName" placeholder="Contoh: Es Teh Manis" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Harga (Rp)</label>
+          <input type="text" id="newProdPrice" placeholder="5000" required class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Kategori Menu</label>
+          <select 
+            id="newProdCategory" 
+            required 
+            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition cursor-pointer"
+          >
+            <option value="Makanan Utama">Makanan Utama</option>
+            <option value="Minuman Segar">Minuman Segar</option>
+            <option value="Camilan & Snack">Camilan &amp; Snack</option>
+            <option value="Paket Hemat">Paket Hemat</option>
+            <option value="Menu Spesial">Menu Spesial</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit" class="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition flex items-center justify-center gap-1 shadow-xs">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Tambah</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Daftar Produk Tabel -->
+      <div class="flex-1 overflow-y-auto border border-slate-200 rounded-xl mb-4">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-100 text-slate-700 font-bold text-xs uppercase sticky top-0">
+            <tr>
+              <th class="px-4 py-2.5">Menu / Produk</th>
+              <th class="px-4 py-2.5">Kategori</th>
+              <th class="px-4 py-2.5">Harga (IDR)</th>
+              <th class="px-4 py-2.5 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="productListTableBody" class="divide-y divide-slate-200">
+            <!-- Render via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-end">
+        <button type="button" class="btnCloseModal px-5 py-2 text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       8. MODAL: PENGATURAN API KEY GOOGLE AI STUDIO
+       ========================================================================= -->
+  <div id="modalApiSettings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full p-6 border border-slate-200">
+      
+      <div class="flex items-center justify-between mb-4 border-b pb-3">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-slate-100 text-slate-700 rounded-xl">
+            <i data-lucide="key" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Integrasi Google AI Studio API</h3>
+            <p class="text-xs text-slate-500">Gemini 1.5 / 2.0 Flash Free Tier (Sesuai PRD AC-4.1)</p>
+          </div>
+        </div>
+        <button type="button" class="btnCloseModal text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 text-xs text-slate-800 space-y-2">
+        <div class="flex items-center gap-1.5 font-bold text-slate-900">
+          <i data-lucide="code" class="w-4 h-4"></i>
+          <span>LOKASI INTEGRASI MANUAL DI FILE KODE:</span>
+        </div>
+        <p class="text-slate-700">
+          Anda dapat meletakkan API Key secara manual langsung di dalam file:
+        </p>
+        <div class="bg-slate-900 text-slate-200 p-2.5 rounded-lg font-mono text-[11px] overflow-x-auto">
+          File: <span class="text-yellow-400">d:\Website Builder AI Demo\js\api.js</span><br>
+          Baris: <span class="text-emerald-400">const CONFIG_GEMINI = { API_KEY: 'MASUKKAN_KEY_DI_SINI' ... };</span>
+        </div>
+      </div>
+
+      <form id="formApiSettings" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase mb-1" for="inputApiKey">
+            Atau Tempelkan API Key Langsung di Sini:
+          </label>
+          <input 
+            type="password" 
+            id="inputApiKey" 
+            placeholder="AIzaSyD-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 
+            class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 transition"
+          />
+          <p class="text-[11px] text-slate-500 mt-1">
+            Dapatkan API Key gratis di <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-indigo-600 underline font-semibold">Google AI Studio</a>.
+          </p>
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" id="btnClearApiKey" class="text-xs font-semibold text-rose-600 hover:underline">
+            Hapus Kunci Tersimpan
+          </button>
+          <div class="flex gap-2">
+            <button type="button" class="btnCloseModal px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">Tutup</button>
+            <button type="submit" class="px-5 py-2 text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition">Simpan Kunci API</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       8AA. MODAL: PILIHAN GAYA DESAIN WEBSITE (TEMPLATE LAYOUT SIAP PAKAI)
+       ========================================================================= -->
+  <div id="modalDesignTemplates" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-5 sm:p-6 border border-slate-200 max-h-[92vh] flex flex-col">
+      
+      <!-- Header Modal -->
+      <div class="flex items-center justify-between mb-3 border-b pb-3 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2.5 bg-slate-100 text-slate-800 rounded-xl">
+            <i data-lucide="layout-template" class="w-6 h-6 text-slate-700"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-lg font-bold text-slate-900 leading-tight">Pilihan Gaya Desain Website (Template Siap Pakai)</h3>
+              <span class="badge-tag gold-badge text-[10px]">Ada Rekomendasi Utama</span>
+            </div>
+            <p class="text-xs text-slate-500">Pilih tata letak visual siap pakai yang paling pas dengan identitas usaha Anda</p>
+          </div>
+        </div>
+        <button type="button" class="btnCloseModal text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Body Modal Ber-scroll dengan padding aman anti-cut -->
+      <div class="overflow-y-auto flex-1 p-2 sm:p-3 space-y-4">
+        
+        <!-- BANNER SOROTAN: TEMPLATE PALING DIREKOMENDASIKAN -->
+        <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs relative overflow-hidden">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative z-10">
+            <div class="space-y-1.5 max-w-2xl">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-900 text-white shadow-xs">
+                  <i data-lucide="star" class="w-3.5 h-3.5 fill-amber-400 text-amber-400"></i> Rekomendasi Utama (Skor 9.9/10)
+                </span>
+                <span class="text-xs font-bold text-slate-800">Warung Modern & Bersih</span>
+              </div>
+              <p class="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+                <strong>Mengapa Paling Direkomendasikan?</strong> Layout ini terbukti paling nyaman dan mudah dibaca oleh siapa saja, penataan menu & konten 2 kolom sangat pas di layar ponsel maupun komputer tanpa ribet coding, serta tombol pemesanan WhatsApp terpasang di posisi emas dengan konversi tertinggi.
+              </p>
+            </div>
+            <button 
+              type="button" 
+              id="btnApplyRecommendedTemplate" 
+              class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-1.5 flex-shrink-0"
+            >
+              <i data-lucide="check-circle" class="w-4 h-4"></i>
+              <span>Gunakan Desain Rekomendasi</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- DAFTAR KARTU CONTOH TEMPLATE DESAIN -->
+        <div>
+          <div class="flex items-center justify-between mb-2 px-1">
+            <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Koleksi Template Desain Tersedia:
+            </h4>
+            <span class="text-[11px] text-slate-500">Klik kartu atau tombol untuk menerapkan seketika</span>
+          </div>
+
+          <!-- Container Grid Template Cards (Diisi via JavaScript) -->
+          <div id="designTemplatesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <!-- Diisi via renderDesignTemplateCards() -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Modal -->
+      <div class="flex items-center justify-between pt-3.5 border-t flex-shrink-0">
+        <button 
+          type="button" 
+          id="btnResetDesignDefault" 
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition"
+        >
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span>Kembalikan ke Desain Awal</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btnCloseModal px-4 py-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition"
+        >
+          Tutup
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       8B. MODAL: PENGATURAN GAYA DESAIN (WARNA & JENIS FONT)
+       ========================================================================= -->
+  <div id="modalThemeSettings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 sm:p-6 border border-slate-200 max-h-[92vh] flex flex-col">
+      
+      <!-- Header Modal -->
+      <div class="flex items-center justify-between mb-2 border-b pb-3 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 bg-slate-100 text-slate-700 rounded-xl">
+            <i data-lucide="palette" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900 leading-tight">Gaya Desain Website (Warna & Jenis Font)</h3>
+            <p class="text-xs text-slate-500">Sesuaikan warna latar, teks, tombol, dan jenis huruf dengan preview langsung</p>
+          </div>
+        </div>
+        <button type="button" class="btnCloseModal text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Body Modal Ber-scroll dengan padding aman anti-cut -->
+      <div class="overflow-y-auto flex-1 p-3.5 sm:p-4 space-y-5">
+        
+        <!-- BAGIAN 1: PRESET TEMA CEPAT (1-KLIK) -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+              1. Pilih Preset Tema Serasi (1-Klik):
+            </label>
+            <span class="text-[11px] text-slate-500">Kombinasi warna & font langsung selaras</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5" id="themePresetsContainer">
+            <!-- Preset Cards di-render via JS / HTML static -->
+          </div>
+        </div>
+
+        <!-- BAGIAN 2: KUSTOMISASI WARNA DETAIL (MANUAL) -->
+        <div class="border-t pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <label class="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+              2. Kustomisasi Warna Manual (Bebas Pilih):
+            </label>
+            <span class="text-[11px] text-slate-500">Warna kanvas berubah langsung saat dipilih</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+            
+            <!-- Warna 1: Latar Halaman (Background) -->
+            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700">Warna Latar Halaman</span>
+                <span class="text-[10px] text-slate-400">Background</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="color" id="pickerBgColor" class="w-9 h-9 rounded-lg border border-slate-300 cursor-pointer p-0.5 bg-white">
+                <input type="text" id="hexBgColor" placeholder="#ffffff" class="w-24 px-2 py-1 text-xs font-mono border rounded-lg uppercase">
+                <div class="flex items-center gap-1 ml-auto">
+                  <button type="button" class="color-swatch-btn bg-white" data-target="BgColor" data-color="#ffffff" title="Putih"></button>
+                  <button type="button" class="color-swatch-btn bg-[#fefce8]" data-target="BgColor" data-color="#fefce8" title="Krem Hangat"></button>
+                  <button type="button" class="color-swatch-btn bg-[#fff7ed]" data-target="BgColor" data-color="#fff7ed" title="Oranye Lembut"></button>
+                  <button type="button" class="color-swatch-btn bg-[#f8fafc]" data-target="BgColor" data-color="#f8fafc" title="Abu Modern"></button>
+                  <button type="button" class="color-swatch-btn bg-[#0f172a]" data-target="BgColor" data-color="#0f172a" title="Gelap Eksklusif"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Warna 2: Tombol & Aksen Utama (Primary) -->
+            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700">Warna Tombol & Aksen</span>
+                <span class="text-[10px] text-slate-400">Tombol & Sorotan</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="color" id="pickerPrimaryColor" class="w-9 h-9 rounded-lg border border-slate-300 cursor-pointer p-0.5 bg-white">
+                <input type="text" id="hexPrimaryColor" placeholder="#15803d" class="w-24 px-2 py-1 text-xs font-mono border rounded-lg uppercase">
+                <div class="flex items-center gap-1 ml-auto">
+                  <button type="button" class="color-swatch-btn bg-[#15803d]" data-target="PrimaryColor" data-color="#15803d" title="Hijau Daun"></button>
+                  <button type="button" class="color-swatch-btn bg-[#78350f]" data-target="PrimaryColor" data-color="#78350f" title="Cokelat Kopi"></button>
+                  <button type="button" class="color-swatch-btn bg-[#b91c1c]" data-target="PrimaryColor" data-color="#b91c1c" title="Merah Resto"></button>
+                  <button type="button" class="color-swatch-btn bg-[#1d4ed8]" data-target="PrimaryColor" data-color="#1d4ed8" title="Biru Modern"></button>
+                  <button type="button" class="color-swatch-btn bg-[#d97706]" data-target="PrimaryColor" data-color="#d97706" title="Emas Amber"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Warna 3: Font Judul (Heading Text) -->
+            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700">Warna Font Judul</span>
+                <span class="text-[10px] text-slate-400">Headings (H1/H2)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="color" id="pickerHeadingColor" class="w-9 h-9 rounded-lg border border-slate-300 cursor-pointer p-0.5 bg-white">
+                <input type="text" id="hexHeadingColor" placeholder="#0f172a" class="w-24 px-2 py-1 text-xs font-mono border rounded-lg uppercase">
+                <div class="flex items-center gap-1 ml-auto">
+                  <button type="button" class="color-swatch-btn bg-[#0f172a]" data-target="HeadingColor" data-color="#0f172a" title="Hitam Pekat"></button>
+                  <button type="button" class="color-swatch-btn bg-[#361605]" data-target="HeadingColor" data-color="#361605" title="Cokelat Tua"></button>
+                  <button type="button" class="color-swatch-btn bg-[#7f1d1d]" data-target="HeadingColor" data-color="#7f1d1d" title="Merah Tua"></button>
+                  <button type="button" class="color-swatch-btn bg-[#1e3a8a]" data-target="HeadingColor" data-color="#1e3a8a" title="Biru Navy"></button>
+                  <button type="button" class="color-swatch-btn bg-[#fbbf24]" data-target="HeadingColor" data-color="#fbbf24" title="Kuning Emas"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Warna 4: Font Teks Isi / Paragraf -->
+            <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700">Warna Font Teks Isi</span>
+                <span class="text-[10px] text-slate-400">Paragraf & Deskripsi</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="color" id="pickerTextColor" class="w-9 h-9 rounded-lg border border-slate-300 cursor-pointer p-0.5 bg-white">
+                <input type="text" id="hexTextColor" placeholder="#334155" class="w-24 px-2 py-1 text-xs font-mono border rounded-lg uppercase">
+                <div class="flex items-center gap-1 ml-auto">
+                  <button type="button" class="color-swatch-btn bg-[#1e293b]" data-target="TextColor" data-color="#1e293b" title="Slate Gelap"></button>
+                  <button type="button" class="color-swatch-btn bg-[#334155]" data-target="TextColor" data-color="#334155" title="Abu Sedang"></button>
+                  <button type="button" class="color-swatch-btn bg-[#451a03]" data-target="TextColor" data-color="#451a03" title="Cokelat Hangat"></button>
+                  <button type="button" class="color-swatch-btn bg-[#475569]" data-target="TextColor" data-color="#475569" title="Abu Lembut"></button>
+                  <button type="button" class="color-swatch-btn bg-[#cbd5e1]" data-target="TextColor" data-color="#cbd5e1" title="Abu Terang"></button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- BAGIAN 3: KUSTOMISASI JENIS FONT -->
+        <div class="border-t pt-4">
+          <div class="flex items-center justify-between mb-3">
+            <label class="block text-xs font-bold text-slate-800 uppercase tracking-wide">
+              3. Pilihan Jenis Huruf (Font):
+            </label>
+            <span class="text-[11px] text-slate-500">Bentuk huruf judul & teks website</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            
+            <!-- Font Judul -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Jenis Font Judul (Heading)</label>
+              <select id="themeHeadingFontSelect" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-slate-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+                <option value="Playfair Display" style="font-family: 'Playfair Display', serif;">Playfair Display (Klasik, Elegan, Mewah)</option>
+                <option value="Plus Jakarta Sans" style="font-family: 'Plus Jakarta Sans', sans-serif;">Plus Jakarta Sans (Modern, Bersih, Tegas)</option>
+                <option value="Poppins" style="font-family: 'Poppins', sans-serif;">Poppins (Bulat, Ramah, Kekinian)</option>
+                <option value="Merriweather" style="font-family: 'Merriweather', serif;">Merriweather (Serif Tradisional & Hangat)</option>
+                <option value="Inter" style="font-family: 'Inter', sans-serif;">Inter (Minimalis & Profesional)</option>
+                <option value="Lora" style="font-family: 'Lora', serif;">Lora (Anggun, Lembut & Artistik)</option>
+                <option value="Roboto" style="font-family: 'Roboto', sans-serif;">Roboto (Simpel, Jelas & Netral)</option>
+              </select>
+            </div>
+
+            <!-- Font Teks Isi -->
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">Jenis Font Teks Isi (Paragraf)</label>
+              <select id="themeBodyFontSelect" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-slate-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+                <option value="Plus Jakarta Sans" style="font-family: 'Plus Jakarta Sans', sans-serif;">Plus Jakarta Sans (Sangat Mudah Dibaca)</option>
+                <option value="Poppins" style="font-family: 'Poppins', sans-serif;">Poppins (Modern, Rapi & Luwes)</option>
+                <option value="Inter" style="font-family: 'Inter', sans-serif;">Inter (Rapi, Standar Web Internasional)</option>
+                <option value="Roboto" style="font-family: 'Roboto', sans-serif;">Roboto (Simpel, Jelas & Nyaman Dibaca Pemula)</option>
+                <option value="Lora" style="font-family: 'Lora', serif;">Lora (Serif Nyaman untuk Cerita Usaha)</option>
+                <option value="Merriweather" style="font-family: 'Merriweather', serif;">Merriweather (Klasik Berwibawa)</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Modal -->
+      <div class="flex items-center justify-between pt-4 border-t flex-shrink-0">
+        <button 
+          type="button" 
+          id="btnResetThemeDefault" 
+          class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition"
+        >
+          <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+          <span>Kembalikan Tema Awal</span>
+        </button>
+
+        <div class="flex gap-2">
+          <button 
+            type="button" 
+            class="btnCloseModal px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+          >
+            Tutup
+          </button>
+          <button 
+            type="button" 
+            id="btnSaveThemeModal" 
+            class="px-5 py-2 text-sm font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-xs transition flex items-center gap-1.5"
+          >
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Terapkan Tema Ini</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- =========================================================================
+       9. NOTIFIKASI TOAST FLOATING
+       ========================================================================= -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+  </div>
+
+
+  <!-- SCRIPTS -->
+  <script src="js/store.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    try {
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    } catch(e) {
+      console.error('Error saat lucide.createIcons:', e);
+    }
+  </script>
+</body>
+</html>
