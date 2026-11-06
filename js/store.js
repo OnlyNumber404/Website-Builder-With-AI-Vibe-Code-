@@ -392,14 +392,22 @@ class InMemoryStore {
     try {
       let newOrderIndex = orderIndex;
 
-      // Posisikan sebelum FOOTER agar tidak tertutup di bagian paling bawah
+      // Posisikan sebelum FOOTER, khusus NAVBAR ditaruh di urutan paling atas (order 1)
       if (newOrderIndex === undefined || newOrderIndex === null) {
-        const footerIndex = this.sections.findIndex(s => s.type === 'FOOTER');
-        if (footerIndex !== -1) {
-          newOrderIndex = this.sections[footerIndex].orderIndex;
-          this.sections[footerIndex].orderIndex += 1;
+        if (type && type.toUpperCase() === 'NAVBAR') {
+          newOrderIndex = 1;
+          // Geser semua section yang ada agar urutan mulai dari 2
+          this.sections.forEach(s => {
+            s.orderIndex += 1;
+          });
         } else {
-          newOrderIndex = this.sections.length + 1;
+          const footerIndex = this.sections.findIndex(s => s.type === 'FOOTER');
+          if (footerIndex !== -1) {
+            newOrderIndex = this.sections[footerIndex].orderIndex;
+            this.sections[footerIndex].orderIndex += 1;
+          } else {
+            newOrderIndex = this.sections.length + 1;
+          }
         }
       } else {
         newOrderIndex = parseInt(newOrderIndex, 10);

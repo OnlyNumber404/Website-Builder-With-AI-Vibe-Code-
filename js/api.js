@@ -86,12 +86,12 @@ Tugas Anda: Menganalisis perintah pengguna dan mengembalikannya STRICTLY HANYA d
 
 SKEMA JSON RESMI YANG HARUS DIHASILKAN (PILIH SALAH SATU ACTION):
 
-1. UNTUK BAGIAN WEBSITE (HERO, ABOUT, CATALOG, CONTACT, FOOTER):
+1. UNTUK BAGIAN WEBSITE (NAVBAR, HERO, ABOUT, CATALOG, CONTACT, FOOTER):
 {
   "action": "ADD_SECTION | UPDATE_SECTION | DELETE_SECTION",
   "targetId": "string (opsional, jika diketahui)",
   "sectionData": {
-    "type": "HERO | CATALOG | ABOUT | CONTACT | FOOTER",
+    "type": "NAVBAR | HERO | CATALOG | ABOUT | CONTACT | FOOTER",
     "title": "string judul",
     "subtitle": "string subjudul atau slogan",
     "content": "string isi penjelasan atau teks kontak/tentang kami",
@@ -134,6 +134,7 @@ SKEMA JSON RESMI YANG HARUS DIHASILKAN (PILIH SALAH SATU ACTION):
 }
 
 ATURAN KALIBRASI BAHASA INDONESIA SEHARI-HARI (TANPA KODING):
+- Jika pengguna meminta tambah navigasi, navbar, menu atas, atau bar navigasi (misal: "tambah navigasi", "buat navbar", "pasang menu atas"), ini adalah ADD_SECTION dengan type "NAVBAR" dan content berisi string JSON array tautan navigasi.
 - Jika pengguna meminta ganti gaya desain template (misal: "ganti desain ke warung modern", "pilih desain rekomendasi", "pakai template kafe", "ganti gaya desain jadi katering", "ubah desain jadi restoran pedas", "ganti ke desain mewah sultan"), ini adalah SET_DESIGN_TEMPLATE.
 - Jika pengguna meminta ganti tema, warna web, latar belakang, warna tombol, atau jenis huruf/font (misal: "ganti warna web jadi merah", "ganti tema jadi kopi", "ubah font jadi poppins", "ganti background jadi krem", "ubah warna tombol jadi biru"), ini adalah UPDATE_THEME.
 - Jika pengguna berkata: "tambah item baru...", "tambah menu...", "tambah produk...", "tambah makanan/minuman...", "jual...", atau perintah yang menyebutkan nama makanan dan harga (misal "tambah soto ayam harga 25000"), ini adalah MANAGE_PRODUCT dengan productOperation "ADD".
@@ -323,6 +324,29 @@ function cleanAndParseJSON(rawText) {
 function fallbackOfflineInterpreter(prompt, context) {
   try {
     const text = (prompt || '').toLowerCase().trim();
+
+    // 0. TAMBAH BAGIAN NAVBAR / NAVIGASI
+    if (text.includes('navigasi') || text.includes('navbar') || text.includes('menu atas') || text.includes('header menu')) {
+      return {
+        success: true,
+        data: {
+          action: 'ADD_SECTION',
+          sectionData: {
+            type: 'NAVBAR',
+            title: 'Dapoer Berkah Nusantara',
+            subtitle: 'Hubungi Kami',
+            content: JSON.stringify([
+              { label: 'Beranda', target: '#hero' },
+              { label: 'Tentang Kami', target: '#about' },
+              { label: 'Daftar Menu', target: '#catalog' },
+              { label: 'Kontak', target: '#contact' }
+            ])
+          }
+        },
+        message: 'Bagian Navbar Navigasi berhasil ditambahkan ke kanvas!',
+        source: 'OFFLINE_MOCK'
+      };
+    }
 
     // 0A. PILIHAN GAYA DESAIN TEMPLATE WEBSITE (SET_DESIGN_TEMPLATE)
     const isDesignTemplatePrompt = text.includes('desain') || text.includes('design') || text.includes('template') || 

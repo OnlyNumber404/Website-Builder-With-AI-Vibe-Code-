@@ -35,6 +35,25 @@ const APP_STATE = {
  * Memenuhi kebutuhan siapa saja yang ingin membuat website secara instan tanpa perlu skill koding agar setiap kolom memiliki petunjuk yang tepat.
  */
 const SECTION_TYPE_METADATA = {
+  NAVBAR: {
+    name: 'Header Navigasi (Navbar)',
+    tip: 'Bilah menu navigasi di bagian atas website. Anda dapat mengatur setiap tautan menu dengan memilih bagian yang dituju lewat dropdown agar otomatis scroll langsung ke bagian tersebut saat diklik.',
+    title: {
+      label: 'Nama Usaha / Merk di Navbar',
+      placeholder: 'Contoh: Dapoer Berkah Nusantara',
+      helper: 'Nama toko atau merk utama yang tampil di sebelah kiri bar navigasi'
+    },
+    subtitle: {
+      label: 'Teks Tombol Aksi Kanan (CTA Button)',
+      placeholder: 'Contoh: Hubungi Kami',
+      helper: 'Tombol aksi khusus di ujung kanan navbar (misal: "Hubungi Kami" atau "Pesan Sekarang")'
+    },
+    content: {
+      label: 'Daftar Menu Navigasi (Tersinkronisasi Otomatis)',
+      placeholder: 'Dikelola otomatis melalui daftar dropdown di atas',
+      helper: 'Daftar menu diatur otomatis sesuai baris dan dropdown tujuan di atas'
+    }
+  },
   HERO: {
     name: 'Banner Sambutan (Hero)',
     tip: 'Bagian paling atas website untuk memperkenalkan nama toko, slogan utama, dan menarik perhatian pembeli pertama kali.',
@@ -283,6 +302,174 @@ function initAuthentication() {
 }
 
 // ======================================================================================
+
+// ======================================================================================
+// NAV LINKS EDITOR & INTERACTIVE SECTION NAVIGATION
+// ======================================================================================
+let ADD_NAV_LINKS = [
+  { label: 'Beranda', target: '#hero' },
+  { label: 'Tentang Kami', target: '#about' },
+  { label: 'Daftar Menu', target: '#catalog' },
+  { label: 'Kontak', target: '#contact' }
+];
+
+let EDIT_NAV_LINKS = [];
+
+function renderNavLinksEditor(prefix) {
+  try {
+    const container = document.getElementById(`${prefix}NavItemsList`);
+    if (!container) return;
+
+    let links = prefix === 'add' ? ADD_NAV_LINKS : EDIT_NAV_LINKS;
+    if (!Array.isArray(links) || links.length === 0) {
+      links = [
+        { label: 'Beranda', target: '#hero' },
+        { label: 'Tentang Kami', target: '#about' },
+        { label: 'Daftar Menu', target: '#catalog' },
+        { label: 'Kontak', target: '#contact' }
+      ];
+      if (prefix === 'add') ADD_NAV_LINKS = links;
+      else EDIT_NAV_LINKS = links;
+    }
+
+    container.innerHTML = '';
+
+    const targetOptions = [
+      { value: '#hero', label: '🏠 Banner Sambutan (Hero / Beranda)' },
+      { value: '#about', label: '📖 Cerita Profil Usaha (About)' },
+      { value: '#catalog', label: '🍽️ Katalog Menu & Produk' },
+      { value: '#contact', label: '📞 Kontak WhatsApp & Alamat' },
+      { value: '#footer', label: '🦶 Catatan Kaki (Footer)' }
+    ];
+
+    links.forEach((link, idx) => {
+      const row = document.createElement('div');
+      row.className = 'nav-item-row flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs';
+
+      const optionsHtml = targetOptions.map(opt => `
+        <option value="${opt.value}" ${link.target === opt.value ? 'selected' : ''}>
+          ${opt.label}
+        </option>
+      `).join('');
+
+      row.innerHTML = `
+        <span class="w-5 h-5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+          ${idx + 1}
+        </span>
+        <div class="flex-1 min-w-0">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Nama Menu</label>
+          <input 
+            type="text" 
+            value="${escapeHtml(link.label || '')}" 
+            placeholder="Misal: Beranda" 
+            class="nav-input-label w-full px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+        </div>
+        <div class="flex-1 min-w-0">
+          <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Tujuan Halaman (Dropdown)</label>
+          <select class="nav-select-target w-full px-2.5 py-1.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            ${optionsHtml}
+          </select>
+        </div>
+        <button 
+          type="button" 
+          class="btn-remove-nav-row mt-3.5 p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" 
+          title="Hapus menu ini"
+        >
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      `;
+
+      const labelInput = row.querySelector('.nav-input-label');
+      if (labelInput) {
+        labelInput.addEventListener('input', (e) => {
+          links[idx].label = e.target.value;
+          syncNavLinksToContent(prefix);
+        });
+      }
+
+      const targetSelect = row.querySelector('.nav-select-target');
+      if (targetSelect) {
+        targetSelect.addEventListener('change', (e) => {
+          links[idx].target = e.target.value;
+          syncNavLinksToContent(prefix);
+        });
+      }
+
+      const btnRemove = row.querySelector('.btn-remove-nav-row');
+      if (btnRemove) {
+        btnRemove.addEventListener('click', () => {
+          links.splice(idx, 1);
+          renderNavLinksEditor(prefix);
+          syncNavLinksToContent(prefix);
+        });
+      }
+
+      container.appendChild(row);
+    });
+
+    syncNavLinksToContent(prefix);
+    if (window.lucide) window.lucide.createIcons();
+  } catch (err) {
+    console.error('Error renderNavLinksEditor:', err);
+  }
+}
+
+function syncNavLinksToContent(prefix) {
+  try {
+    const links = prefix === 'add' ? ADD_NAV_LINKS : EDIT_NAV_LINKS;
+    const contentInput = document.getElementById(`${prefix}SectionContent`);
+    if (contentInput) {
+      contentInput.value = JSON.stringify(links);
+    }
+  } catch (err) {
+    console.error('Error syncNavLinksToContent:', err);
+  }
+}
+
+window.handleNavigateToSection = function(targetSelector) {
+  try {
+    if (!targetSelector) return;
+    const cleanId = targetSelector.replace('#', '').trim();
+    const typeUpper = cleanId.toUpperCase();
+
+    // 1. Cari berdasarkan data-type (HERO, CATALOG, ABOUT, CONTACT, FOOTER)
+    let targetEl = document.querySelector(`[data-type="${typeUpper}"]`);
+
+    // 2. Cari berdasarkan ID semantik section
+    if (!targetEl) {
+      targetEl = document.getElementById(`section-${cleanId}`) || 
+                 document.getElementById(`section-${cleanId.toLowerCase()}`) || 
+                 document.getElementById(cleanId);
+    }
+
+    // 3. Fallback querySelector langsung
+    if (!targetEl && targetSelector.startsWith('#')) {
+      targetEl = document.querySelector(targetSelector);
+    }
+
+    if (targetEl) {
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Highlight visual penanda bagian yang dituju
+      targetEl.classList.remove('ring-4', 'ring-indigo-500/70', 'ring-offset-2');
+      void targetEl.offsetWidth; // force reflow
+      targetEl.classList.add('ring-4', 'ring-indigo-500/70', 'ring-offset-2', 'transition-all', 'duration-300');
+
+      showToast(`Membuka bagian: ${typeUpper || cleanId}`, 'info', 1500);
+
+      setTimeout(() => {
+        targetEl.classList.remove('ring-4', 'ring-indigo-500/70', 'ring-offset-2');
+      }, 1800);
+    } else {
+      console.warn('Bagian target navigasi tidak ditemukan di kanvas:', targetSelector);
+      showToast(`Bagian ${cleanId} tidak ditemukan di kanvas saat ini.`, 'warning', 2000);
+    }
+  } catch (err) {
+    console.error('Error handleNavigateToSection:', err);
+  }
+};
+
 // 3. FUNGSI ADAPTASI FORM PINTAR (UPDATE HINT & FIELD SESUAI TIPE BAGIAN)
 // ======================================================================================
 function updateSectionFormFields(prefix, sectionType) {
@@ -325,10 +512,20 @@ function updateSectionFormFields(prefix, sectionType) {
     if (contactBox) {
       if (cleanType === 'CONTACT') {
         contactBox.classList.remove('hidden');
-        // Hubungkan event sync dari input kontak ke textarea content
         setupContactFieldSync(prefix);
       } else {
         contactBox.classList.add('hidden');
+      }
+    }
+
+    // 6. Penanganan Khusus Tipe NAVBAR (Menampilkan konfigurasi menu navigasi dengan dropdown tujuan)
+    const navBox = document.getElementById(`${prefix}NavBox`);
+    if (navBox) {
+      if (cleanType === 'NAVBAR') {
+        navBox.classList.remove('hidden');
+        renderNavLinksEditor(prefix);
+      } else {
+        navBox.classList.add('hidden');
       }
     }
 
@@ -1129,6 +1326,7 @@ function renderSidebarSections() {
     if (!listContainer) return;
 
     const sectionPresets = [
+      { type: 'NAVBAR', title: 'Header Navigasi (Navbar)', desc: 'Bar navigasi atas dengan logo dan menu dropdown tautan halaman' },
       { type: 'HERO', title: 'Banner Sambutan (Hero)', desc: 'Nama usaha mencolok, slogan pemikat, dan tombol WhatsApp' },
       { type: 'ABOUT', title: 'Tentang Kami (Cerita Usaha)', desc: 'Kisah awal mula usaha, resep warisan, dan dedikasi rasa' },
       { type: 'CATALOG', title: 'Katalog Menu & Produk', desc: 'Etalase hidangan lezat dan aneka produk yang dijual' },
@@ -1228,11 +1426,20 @@ function handleAddSectionPreset(type) {
     if (!store) return;
 
     const meta = SECTION_TYPE_METADATA[type] || SECTION_TYPE_METADATA.ABOUT;
+    let defaultContent = meta.content.placeholder.replace('Contoh: ', '');
+    if (type === 'NAVBAR') {
+      defaultContent = JSON.stringify([
+        { label: 'Beranda', target: '#hero' },
+        { label: 'Tentang Kami', target: '#about' },
+        { label: 'Daftar Menu', target: '#catalog' },
+        { label: 'Kontak', target: '#contact' }
+      ]);
+    }
     const res = store.addSection({
       type,
       title: meta.title.placeholder.replace('Contoh: ', ''),
       subtitle: meta.subtitle.placeholder.replace('Contoh: ', ''),
-      content: meta.content.placeholder.replace('Contoh: ', '')
+      content: defaultContent
     });
 
     if (res.success) {
@@ -1381,6 +1588,75 @@ function renderCanvas() {
         let innerHTML = '';
 
         switch (section.type) {
+          case 'NAVBAR': {
+            let navLinks = [];
+            try {
+              if (section.content && section.content.trim().startsWith('[')) {
+                navLinks = JSON.parse(section.content);
+              }
+            } catch (e) {
+              navLinks = [];
+            }
+
+            if (!Array.isArray(navLinks) || navLinks.length === 0) {
+              navLinks = [
+                { label: 'Beranda', target: '#hero' },
+                { label: 'Tentang Kami', target: '#about' },
+                { label: 'Daftar Menu', target: '#catalog' },
+                { label: 'Kontak', target: '#contact' }
+              ];
+            }
+
+            const ctaText = section.subtitle || 'Hubungi Kami';
+            const brandName = section.title || 'Nama Usaha Anda';
+
+            innerHTML = `
+              <header class="w-full bg-white/95 backdrop-blur border-b border-slate-200/90 shadow-2xs py-3.5 px-4 sm:px-6 transition">
+                <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                  
+                  <!-- Logo Brand -->
+                  <a href="#hero" onclick="window.handleNavigateToSection('#hero'); return false;" class="flex items-center gap-2 group cursor-pointer text-decoration-none">
+                    <div class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-white shadow-xs transition group-hover:scale-105" style="background-color: ${theme.primaryColor || '#0f172a'};">
+                      <i data-lucide="utensils-crossed" class="w-4 h-4"></i>
+                    </div>
+                    <span class="font-bold text-base sm:text-lg tracking-tight group-hover:opacity-80 transition" style="font-family: '${theme.headingFont}', Georgia, serif; color: ${theme.headingColor || '#0f172a'};">
+                      ${escapeHtml(brandName)}
+                    </span>
+                  </a>
+
+                  <!-- Menu Links Navigasi -->
+                  <nav class="flex items-center flex-wrap gap-1 sm:gap-2">
+                    ${navLinks.map((item) => `
+                      <a 
+                        href="${escapeHtml(item.target || '#')}" 
+                        onclick="window.handleNavigateToSection('${escapeHtml(item.target || '#')}'); return false;"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-950 hover:bg-slate-100 transition flex items-center gap-1 group/link cursor-pointer"
+                        title="Klik untuk membuka bagian ${escapeHtml(item.target || '')}"
+                      >
+                        <span>${escapeHtml(item.label || 'Menu')}</span>
+                        ${APP_STATE.isEditorMode ? `<span class="text-[9px] font-mono text-slate-400 group-hover/link:text-indigo-600 transition">(${escapeHtml(item.target || '')})</span>` : ''}
+                      </a>
+                    `).join('')}
+                  </nav>
+
+                  <!-- CTA Button -->
+                  ${ctaText ? `
+                    <a 
+                      href="#contact" 
+                      onclick="window.handleNavigateToSection('#contact'); return false;"
+                      class="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-xs transition transform hover:scale-105 flex items-center gap-1.5 cursor-pointer"
+                      style="background-color: ${theme.primaryColor || '#0f172a'};"
+                    >
+                      <i data-lucide="phone-call" class="w-3.5 h-3.5"></i>
+                      <span>${escapeHtml(ctaText)}</span>
+                    </a>
+                  ` : ''}
+
+                </div>
+              </header>
+            `;
+            break;
+          }
           case 'HERO': {
             const heroVariant = styleCfg.heroVariant || 'modern-centered';
             const heroDarkTone = theme.headingColor === '#0f172a' ? '#064e3b' : theme.headingColor;
@@ -2334,6 +2610,27 @@ function openEditSectionModal(id) {
     // Jika tipe CONTACT, urai teks content ke dalam sub-field nomor telepon, alamat, dan jam buka
     if (section.type === 'CONTACT') {
       parseContactContentToFields('edit', section.content || '');
+    } else if (section.type === 'NAVBAR') {
+      try {
+        if (section.content && section.content.trim().startsWith('[')) {
+          EDIT_NAV_LINKS = JSON.parse(section.content);
+        } else {
+          EDIT_NAV_LINKS = [
+            { label: 'Beranda', target: '#hero' },
+            { label: 'Tentang Kami', target: '#about' },
+            { label: 'Daftar Menu', target: '#catalog' },
+            { label: 'Kontak', target: '#contact' }
+          ];
+        }
+      } catch (e) {
+        EDIT_NAV_LINKS = [
+          { label: 'Beranda', target: '#hero' },
+          { label: 'Tentang Kami', target: '#about' },
+          { label: 'Daftar Menu', target: '#catalog' },
+          { label: 'Kontak', target: '#contact' }
+        ];
+      }
+      renderNavLinksEditor('edit');
     }
 
     const modal = document.getElementById('modalEditSection');
@@ -2695,6 +2992,12 @@ function setupEventListeners() {
           const subtitle = document.getElementById('addSectionSubtitle').value;
           let content = document.getElementById('addSectionContent').value;
 
+          // Jika tipe NAVBAR, pastikan content tersusun dari dropdown
+          if (type === 'NAVBAR') {
+            syncNavLinksToContent('add');
+            content = document.getElementById('addSectionContent').value;
+          }
+
           // Jika tipe CONTACT, pastikan content tersusun rapi jika belum terisi manual
           if (type === 'CONTACT') {
             const phone = (document.getElementById('addContactPhone')?.value || '').trim();
@@ -2852,6 +3155,32 @@ function setupEventListeners() {
           showToast('API Key tersimpan telah dihapus.', 'info');
         } catch (e) {
           console.error('Error clear API key:', e);
+        }
+      });
+    }
+
+    // Tombol Tambah Baris Menu Navigasi (Add Modal)
+    const btnAddNavRowAdd = document.getElementById('btnAddNavRowAdd');
+    if (btnAddNavRowAdd) {
+      btnAddNavRowAdd.addEventListener('click', () => {
+        try {
+          ADD_NAV_LINKS.push({ label: 'Menu Baru', target: '#catalog' });
+          renderNavLinksEditor('add');
+        } catch (e) {
+          console.error('Error btnAddNavRowAdd:', e);
+        }
+      });
+    }
+
+    // Tombol Tambah Baris Menu Navigasi (Edit Modal)
+    const btnAddNavRowEdit = document.getElementById('btnAddNavRowEdit');
+    if (btnAddNavRowEdit) {
+      btnAddNavRowEdit.addEventListener('click', () => {
+        try {
+          EDIT_NAV_LINKS.push({ label: 'Menu Baru', target: '#catalog' });
+          renderNavLinksEditor('edit');
+        } catch (e) {
+          console.error('Error btnAddNavRowEdit:', e);
         }
       });
     }
