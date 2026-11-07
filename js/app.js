@@ -3333,13 +3333,6 @@ function setupEventListeners() {
         }
       });
     }
-            showToast('Perubahan bagian berhasil disimpan!', 'success');
-          }
-        } catch (e) {
-          console.error('Error submit formEditSection:', e);
-        }
-      });
-    }
 
     const btnManageProducts = document.getElementById('btnManageProducts');
     const modalManageProducts = document.getElementById('modalManageProducts');
