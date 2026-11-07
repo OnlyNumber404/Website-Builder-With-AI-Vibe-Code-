@@ -355,21 +355,9 @@ function renderNavLinksEditor(prefix) {
 
       let distinction = '';
       if (countOfType > 1) {
-        if (s.type === 'HERO') {
-          distinction = typeIdx === 1 ? ' (Utama)' : ` (Promo #${typeIdx})`;
-        } else {
-          distinction = typeIdx === 1 ? ' (Utama)' : ` (#${typeIdx})`;
-        }
+        distinction = ` #${typeIdx}`;
       }
 
-      const icons = {
-        HERO: '🏠',
-        ABOUT: '📖',
-        CATALOG: '🍽️',
-        CONTACT: '📞',
-        FOOTER: '🦶'
-      };
-      const icon = icons[s.type] || '📑';
       const titleSnippet = s.title ? ` - "${s.title}"` : '';
 
       dynamicTargetOptions.push({
@@ -377,18 +365,18 @@ function renderNavLinksEditor(prefix) {
         sectionId: s.id,
         sectionType: s.type,
         isFirst: typeIdx === 1,
-        label: `${icon} [#${s.orderIndex}] ${s.type}${distinction}${titleSnippet}`
+        label: `[#${s.orderIndex}] ${s.type}${distinction}${titleSnippet}`
       });
     });
 
     // Fallback jika belum ada bagian di kanvas
     if (dynamicTargetOptions.length === 0) {
       dynamicTargetOptions.push(
-        { value: '#hero', sectionType: 'HERO', isFirst: true, label: '🏠 Banner Sambutan (Hero)' },
-        { value: '#about', sectionType: 'ABOUT', isFirst: true, label: '📖 Profil Usaha (About)' },
-        { value: '#catalog', sectionType: 'CATALOG', isFirst: true, label: '🍽️ Katalog Menu (Catalog)' },
-        { value: '#contact', sectionType: 'CONTACT', isFirst: true, label: '📞 Kontak WhatsApp (Contact)' },
-        { value: '#footer', sectionType: 'FOOTER', isFirst: true, label: '🦶 Catatan Kaki (Footer)' }
+        { value: '#hero', sectionType: 'HERO', isFirst: true, label: 'HERO - Banner Sambutan' },
+        { value: '#about', sectionType: 'ABOUT', isFirst: true, label: 'ABOUT - Profil Usaha' },
+        { value: '#catalog', sectionType: 'CATALOG', isFirst: true, label: 'CATALOG - Katalog Menu & Produk' },
+        { value: '#contact', sectionType: 'CONTACT', isFirst: true, label: 'CONTACT - Kontak WhatsApp' },
+        { value: '#footer', sectionType: 'FOOTER', isFirst: true, label: 'FOOTER - Catatan Kaki' }
       );
     }
 
@@ -1442,17 +1430,12 @@ function renderSidebarActiveSections() {
       const typeIdx = typeIndices[section.type];
       const countOfType = typeCounts[section.type] || 1;
 
-      // Pembeda jika ada lebih dari 1 bagian bertipe sama (misal 2 Hero)
+      // Pembeda jika ada lebih dari 1 bagian bertipe sama (misal: 2 Hero atau 2 About)
       let roleLabel = '';
       let roleBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
       if (countOfType > 1) {
-        if (section.type === 'HERO') {
-          roleLabel = typeIdx === 1 ? 'Hero Utama' : `Hero Promo (#${typeIdx})`;
-          roleBadgeClass = typeIdx === 1 ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-amber-50 text-amber-800 border-amber-200';
-        } else {
-          roleLabel = typeIdx === 1 ? `${section.type} Utama` : `${section.type} #${typeIdx}`;
-          roleBadgeClass = typeIdx === 1 ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-sky-50 text-sky-800 border-sky-200';
-        }
+        roleLabel = `${section.type} #${typeIdx}`;
+        roleBadgeClass = typeIdx === 1 ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-100 text-slate-700 border-slate-200';
       } else {
         roleLabel = section.type;
       }
@@ -1477,9 +1460,8 @@ function renderSidebarActiveSections() {
             type="button" 
             onclick="window.handleNavigateToSection('#section-${section.id}')" 
             title="Sorot / Scroll ke bagian ini di kanvas"
-            class="px-2 py-1 bg-slate-50 hover:bg-indigo-600 hover:text-white text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs"
+            class="px-2.5 py-1 bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition shadow-2xs"
           >
-            <i data-lucide="crosshair" class="w-3 h-3"></i>
             <span>Sorot</span>
           </button>
           <button 
@@ -1711,13 +1693,8 @@ function renderCanvas() {
         let roleTag = '';
         let roleBadgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
         if (countOfType > 1) {
-          if (section.type === 'HERO') {
-            roleTag = currentTypeIdx === 1 ? ' • Utama' : ` • Promo (#${currentTypeIdx})`;
-            roleBadgeColor = currentTypeIdx === 1 ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-amber-100 text-amber-900 border-amber-300';
-          } else {
-            roleTag = currentTypeIdx === 1 ? ' • Utama' : ` • #${currentTypeIdx}`;
-            roleBadgeColor = currentTypeIdx === 1 ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-sky-100 text-sky-800 border-sky-200';
-          }
+          roleTag = ` #${currentTypeIdx}`;
+          roleBadgeColor = currentTypeIdx === 1 ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-slate-100 text-slate-800 border-slate-200';
         }
 
         if (APP_STATE.isEditorMode) {
