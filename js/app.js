@@ -334,21 +334,88 @@ function renderNavLinksEditor(prefix) {
 
     container.innerHTML = '';
 
-    const targetOptions = [
-      { value: '#hero', label: '🏠 Banner Sambutan (Hero / Beranda)' },
-      { value: '#about', label: '📖 Cerita Profil Usaha (About)' },
-      { value: '#catalog', label: '🍽️ Katalog Menu & Produk' },
-      { value: '#contact', label: '📞 Kontak WhatsApp & Alamat' },
-      { value: '#footer', label: '🦶 Catatan Kaki (Footer)' }
-    ];
+    // Ambil daftar bagian aktual yang sedang ada di kanvas secara real-time
+    const store = getStore();
+    const sortedSections = store ? store.getSortedSections() : [];
+
+    // Hitung frekuensi tipe bagian untuk memberi label pembeda jika ada multiple
+    const typeCounts = {};
+    sortedSections.forEach(s => {
+      typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
+    });
+
+    const typeIndices = {};
+    const dynamicTargetOptions = [];
+
+    // Filter keluar NAVBAR (navigasi ke navbar sendiri tidak dibutuhkan)
+    sortedSections.filter(s => s.type !== 'NAVBAR').forEach(s => {
+      typeIndices[s.type] = (typeIndices[s.type] || 0) + 1;
+      const typeIdx = typeIndices[s.type];
+      const countOfType = typeCounts[s.type] || 1;
+
+      let distinction = '';
+      if (countOfType > 1) {
+        if (s.type === 'HERO') {
+          distinction = typeIdx === 1 ? ' (Utama)' : ` (Promo #${typeIdx})`;
+        } else {
+          distinction = typeIdx === 1 ? ' (Utama)' : ` (#${typeIdx})`;
+        }
+      }
+
+      const icons = {
+        HERO: '🏠',
+        ABOUT: '📖',
+        CATALOG: '🍽️',
+        CONTACT: '📞',
+        FOOTER: '🦶'
+      };
+      const icon = icons[s.type] || '📑';
+      const titleSnippet = s.title ? ` - "${s.title}"` : '';
+
+      dynamicTargetOptions.push({
+        value: `#section-${s.id}`,
+        sectionId: s.id,
+        sectionType: s.type,
+        isFirst: typeIdx === 1,
+        label: `${icon} [#${s.orderIndex}] ${s.type}${distinction}${titleSnippet}`
+      });
+    });
+
+    // Fallback jika belum ada bagian di kanvas
+    if (dynamicTargetOptions.length === 0) {
+      dynamicTargetOptions.push(
+        { value: '#hero', sectionType: 'HERO', isFirst: true, label: '🏠 Banner Sambutan (Hero)' },
+        { value: '#about', sectionType: 'ABOUT', isFirst: true, label: '📖 Profil Usaha (About)' },
+        { value: '#catalog', sectionType: 'CATALOG', isFirst: true, label: '🍽️ Katalog Menu (Catalog)' },
+        { value: '#contact', sectionType: 'CONTACT', isFirst: true, label: '📞 Kontak WhatsApp (Contact)' },
+        { value: '#footer', sectionType: 'FOOTER', isFirst: true, label: '🦶 Catatan Kaki (Footer)' }
+      );
+    }
 
     links.forEach((link, idx) => {
       const row = document.createElement('div');
       row.className = 'nav-item-row flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs';
 
-      const optionsHtml = targetOptions.map(opt => `
-        <option value="${opt.value}" ${link.target === opt.value ? 'selected' : ''}>
-          ${opt.label}
+      // Cocokkan link.target dengan option dinamis
+      let selectedVal = link.target;
+      const directMatch = dynamicTargetOptions.find(opt => opt.value === link.target);
+      if (!directMatch) {
+        // Jika target berformat lama (misal: '#hero', '#catalog'), arahkan ke section pertama yang cocok
+        const cleanType = (link.target || '').replace(/^#section-/, '').replace(/^#/, '').toUpperCase();
+        const typeMatch = dynamicTargetOptions.find(opt => opt.sectionType === cleanType && opt.isFirst) ||
+                          dynamicTargetOptions.find(opt => opt.sectionType === cleanType);
+        if (typeMatch) {
+          selectedVal = typeMatch.value;
+          link.target = typeMatch.value; // sinkronkan target ke ID spesifik
+        } else if (dynamicTargetOptions.length > 0) {
+          selectedVal = dynamicTargetOptions[0].value;
+          link.target = dynamicTargetOptions[0].value;
+        }
+      }
+
+      const optionsHtml = dynamicTargetOptions.map(opt => `
+        <option value="${opt.value}" ${opt.value === selectedVal ? 'selected' : ''}>
+          ${escapeHtml(opt.label)}
         </option>
       `).join('');
 
@@ -430,33 +497,41 @@ function syncNavLinksToContent(prefix) {
 window.handleNavigateToSection = function(targetSelector) {
   try {
     if (!targetSelector) return;
-    const cleanId = targetSelector.replace('#', '').trim();
-    const typeUpper = cleanId.toUpperCase();
+    const rawTarget = targetSelector.trim();
+    const cleanId = rawTarget.replace(/^#/, '');
 
-    // 1. Cari berdasarkan data-type (HERO, CATALOG, ABOUT, CONTACT, FOOTER)
-    let targetEl = document.querySelector(`[data-type="${typeUpper}"]`);
+    // 1. Cari exact matching ID (misal: "section-sec_123", "sec_123", dll)
+    let targetEl = document.getElementById(cleanId) || 
+                   document.getElementById(`section-${cleanId}`) || 
+                   document.querySelector(`[data-id="${cleanId}"]`) || 
+                   document.querySelector(`[data-id="${cleanId.replace(/^section-/, '')}"]`);
 
-    // 2. Cari berdasarkan ID semantik section
+    // 2. Jika tidak ditemukan, cari berdasarkan data-type (misal jika targetSelector adalah '#hero' atau '#catalog')
     if (!targetEl) {
-      targetEl = document.getElementById(`section-${cleanId}`) || 
-                 document.getElementById(`section-${cleanId.toLowerCase()}`) || 
-                 document.getElementById(cleanId);
+      const typeUpper = cleanId.replace(/^section-/, '').toUpperCase();
+      targetEl = document.querySelector(`[data-type="${typeUpper}"]`);
     }
 
     // 3. Fallback querySelector langsung
-    if (!targetEl && targetSelector.startsWith('#')) {
-      targetEl = document.querySelector(targetSelector);
+    if (!targetEl && rawTarget.startsWith('#')) {
+      try {
+        targetEl = document.querySelector(rawTarget);
+      } catch (e) {
+        // Abaikan selector invalid
+      }
     }
 
     if (targetEl) {
-      targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Highlight visual penanda bagian yang dituju
+      // Highlight visual penanda bagian yang dituju dengan pulsing ring
       targetEl.classList.remove('ring-4', 'ring-indigo-500/70', 'ring-offset-2');
       void targetEl.offsetWidth; // force reflow
       targetEl.classList.add('ring-4', 'ring-indigo-500/70', 'ring-offset-2', 'transition-all', 'duration-300');
 
-      showToast(`Membuka bagian: ${typeUpper || cleanId}`, 'info', 1500);
+      const secType = targetEl.getAttribute('data-type') || 'BAGIAN';
+      const order = targetEl.getAttribute('data-order') || '';
+      showToast(`Membuka bagian #${order} (${secType})`, 'info', 1500);
 
       setTimeout(() => {
         targetEl.classList.remove('ring-4', 'ring-indigo-500/70', 'ring-offset-2');
@@ -503,9 +578,18 @@ function updateSectionFormFields(prefix, sectionType) {
     const contentLabel = document.getElementById(`${prefix}ContentLabel`);
     const contentHelper = document.getElementById(`${prefix}ContentHelper`);
     const contentInput = document.getElementById(`${prefix}SectionContent`);
+    const contentGroup = document.getElementById(`${prefix}ContentGroup`);
     if (contentLabel) contentLabel.textContent = meta.content.label;
     if (contentHelper) contentHelper.textContent = meta.content.helper;
     if (contentInput) contentInput.placeholder = meta.content.placeholder;
+
+    // Hapus residu string JSON jika beralih dari NAVBAR ke tipe bagian lain
+    if (cleanType !== 'NAVBAR' && contentInput) {
+      const val = (contentInput.value || '').trim();
+      if (val.startsWith('[') || val.startsWith('{"')) {
+        contentInput.value = '';
+      }
+    }
 
     // 5. Penanganan Khusus Tipe CONTACT (Menampilkan input Telepon, Alamat, dan Jam Buka)
     const contactBox = document.getElementById(`${prefix}ContactBox`);
@@ -523,9 +607,11 @@ function updateSectionFormFields(prefix, sectionType) {
     if (navBox) {
       if (cleanType === 'NAVBAR') {
         navBox.classList.remove('hidden');
+        if (contentGroup) contentGroup.classList.add('hidden');
         renderNavLinksEditor(prefix);
       } else {
         navBox.classList.add('hidden');
+        if (contentGroup) contentGroup.classList.remove('hidden');
       }
     }
 
@@ -1320,8 +1406,113 @@ function renderSidebarItems() {
   }
 }
 
+function renderSidebarActiveSections() {
+  try {
+    const listContainer = document.getElementById('sidebarActiveSectionsList');
+    const badgeCount = document.getElementById('badgeActiveSectionsCount');
+    const store = getStore();
+    if (!listContainer || !store) return;
+
+    const sortedSections = store.getSortedSections();
+    if (badgeCount) {
+      badgeCount.textContent = `${sortedSections.length} Bagian`;
+    }
+
+    listContainer.innerHTML = '';
+
+    if (sortedSections.length === 0) {
+      listContainer.innerHTML = `
+        <div class="p-3 text-center text-slate-400 bg-white rounded-lg border border-slate-200/80 text-xs">
+          Belum ada bagian di kanvas.
+        </div>
+      `;
+      return;
+    }
+
+    // Hitung frekuensi tipe bagian untuk memberi label pembeda jika ada multiple
+    const typeCounts = {};
+    sortedSections.forEach(s => {
+      typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
+    });
+
+    const typeIndices = {};
+
+    sortedSections.forEach((section) => {
+      typeIndices[section.type] = (typeIndices[section.type] || 0) + 1;
+      const typeIdx = typeIndices[section.type];
+      const countOfType = typeCounts[section.type] || 1;
+
+      // Pembeda jika ada lebih dari 1 bagian bertipe sama (misal 2 Hero)
+      let roleLabel = '';
+      let roleBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+      if (countOfType > 1) {
+        if (section.type === 'HERO') {
+          roleLabel = typeIdx === 1 ? 'Hero Utama' : `Hero Promo (#${typeIdx})`;
+          roleBadgeClass = typeIdx === 1 ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-amber-50 text-amber-800 border-amber-200';
+        } else {
+          roleLabel = typeIdx === 1 ? `${section.type} Utama` : `${section.type} #${typeIdx}`;
+          roleBadgeClass = typeIdx === 1 ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-sky-50 text-sky-800 border-sky-200';
+        }
+      } else {
+        roleLabel = section.type;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'active-section-card bg-white p-2 rounded-xl border border-slate-200/90 shadow-2xs hover:border-indigo-300 transition flex items-center justify-between gap-2';
+      
+      card.innerHTML = `
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-slate-900 text-white">#${section.orderIndex}</span>
+            <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${roleBadgeClass}">
+              ${roleLabel}
+            </span>
+          </div>
+          <h6 class="text-xs font-semibold text-slate-800 truncate mt-1 leading-snug" title="${escapeHtml(section.title || '')}">
+            ${escapeHtml(section.title || 'Tanpa Judul')}
+          </h6>
+        </div>
+        <div class="flex items-center gap-1 flex-shrink-0">
+          <button 
+            type="button" 
+            onclick="window.handleNavigateToSection('#section-${section.id}')" 
+            title="Sorot / Scroll ke bagian ini di kanvas"
+            class="px-2 py-1 bg-slate-50 hover:bg-indigo-600 hover:text-white text-slate-700 border border-slate-200 rounded-lg text-[10px] font-bold transition flex items-center gap-1 shadow-2xs"
+          >
+            <i data-lucide="crosshair" class="w-3 h-3"></i>
+            <span>Sorot</span>
+          </button>
+          <button 
+            type="button" 
+            onclick="openEditSectionModal('${section.id}')" 
+            title="Edit komponen ini"
+            class="p-1 hover:bg-emerald-50 text-emerald-700 rounded-lg border border-transparent hover:border-emerald-200 transition"
+          >
+            <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+          </button>
+          <button 
+            type="button" 
+            onclick="handleDeleteSection('${section.id}')" 
+            title="Hapus bagian ini"
+            class="p-1 hover:bg-rose-50 text-rose-600 rounded-lg border border-transparent hover:border-rose-200 transition"
+          >
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      `;
+
+      listContainer.appendChild(card);
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  } catch (err) {
+    console.error('Error renderSidebarActiveSections:', err);
+  }
+}
+
 function renderSidebarSections() {
   try {
+    renderSidebarActiveSections();
     const listContainer = document.getElementById('sidebarDraggableSectionsList');
     if (!listContainer) return;
 
@@ -1444,6 +1635,7 @@ function handleAddSectionPreset(type) {
 
     if (res.success) {
       renderCanvas();
+      renderSidebarSections();
       showToast(`Bagian ${type} berhasil ditambahkan ke kanvas!`, 'success');
     }
   } catch (err) {
@@ -1503,8 +1695,31 @@ function renderCanvas() {
       return;
     }
 
+    // Hitung frekuensi tipe bagian untuk memberi label pembeda jika ada multiple bagian bertipe sama (misal: 2 Hero)
+    const typeCounts = {};
+    sortedSections.forEach(s => {
+      typeCounts[s.type] = (typeCounts[s.type] || 0) + 1;
+    });
+    const typeIndices = {};
+
     sortedSections.forEach((section, index) => {
       try {
+        typeIndices[section.type] = (typeIndices[section.type] || 0) + 1;
+        const currentTypeIdx = typeIndices[section.type];
+        const countOfType = typeCounts[section.type] || 1;
+
+        let roleTag = '';
+        let roleBadgeColor = 'bg-slate-100 text-slate-800 border-slate-200';
+        if (countOfType > 1) {
+          if (section.type === 'HERO') {
+            roleTag = currentTypeIdx === 1 ? ' • Utama' : ` • Promo (#${currentTypeIdx})`;
+            roleBadgeColor = currentTypeIdx === 1 ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-amber-100 text-amber-900 border-amber-300';
+          } else {
+            roleTag = currentTypeIdx === 1 ? ' • Utama' : ` • #${currentTypeIdx}`;
+            roleBadgeColor = currentTypeIdx === 1 ? 'bg-indigo-100 text-indigo-800 border-indigo-200' : 'bg-sky-100 text-sky-800 border-sky-200';
+          }
+        }
+
         if (APP_STATE.isEditorMode) {
           const dropZoneGap = document.createElement('div');
           dropZoneGap.className = 'drop-zone-section-gap';
@@ -1541,8 +1756,15 @@ function renderCanvas() {
         let controlsOverlay = '';
         if (APP_STATE.isEditorMode) {
           controlsOverlay = `
-            <div class="section-controls-overlay flex items-center gap-1 bg-white/95 backdrop-blur p-1.5 rounded-xl shadow-lg border border-slate-300">
-              <span class="badge-tag bg-slate-100 text-slate-700 mr-1 font-mono text-[10px]">#${section.orderIndex} ${section.type}</span>
+            <div class="section-controls-overlay flex items-center gap-1.5 bg-white/95 backdrop-blur p-1.5 rounded-xl shadow-lg border border-slate-300 max-w-[95%]">
+              <span class="badge-tag bg-slate-900 text-white font-mono text-[10px] px-2 py-0.5 rounded">#${section.orderIndex}</span>
+              <span class="badge-tag border font-bold text-[10px] px-2 py-0.5 rounded ${roleBadgeColor}">
+                ${section.type}${roleTag}
+              </span>
+              <span class="text-xs font-semibold text-slate-700 truncate max-w-[120px] sm:max-w-[200px]" title="${escapeHtml(section.title || '')}">
+                "${escapeHtml(section.title || 'Tanpa Judul')}"
+              </span>
+              <div class="h-3.5 w-px bg-slate-200 mx-0.5"></div>
               
               <button 
                 type="button" 
@@ -2130,6 +2352,9 @@ function renderCanvas() {
 
     setupCatalogDropTarget();
 
+    // Pastikan daftar bagian aktif di sidebar selalu tersinkronisasi
+    renderSidebarActiveSections();
+
     if (window.lucide) {
       window.lucide.createIcons();
     }
@@ -2564,6 +2789,7 @@ function handleMoveSection(id, direction) {
     const res = store.moveSection(id, direction);
     if (res.success) {
       renderCanvas();
+      renderSidebar();
       showToast(`Urutan bagian berhasil digeser ke ${direction === 'UP' ? 'atas' : 'bawah'}.`, 'success', 2000);
     }
   } catch (err) {
@@ -2579,6 +2805,7 @@ function handleDeleteSection(id) {
       const res = store.deleteSection(id);
       if (res.success) {
         renderCanvas();
+        renderSidebar();
         showToast('Bagian berhasil dihapus.', 'info');
       } else {
         showToast(res.error || 'Gagal menghapus bagian.', 'error');
@@ -2605,11 +2832,17 @@ function openEditSectionModal(id) {
 
     document.getElementById('editSectionTitle').value = section.title || '';
     document.getElementById('editSectionSubtitle').value = section.subtitle || '';
-    document.getElementById('editSectionContent').value = section.content || '';
+
+    // Pastikan tidak ada string JSON bocor jika tipe bukan NAVBAR
+    let safeContent = section.content || '';
+    if (section.type !== 'NAVBAR' && (safeContent.trim().startsWith('[') || safeContent.trim().startsWith('{"'))) {
+      safeContent = '';
+    }
+    document.getElementById('editSectionContent').value = safeContent;
 
     // Jika tipe CONTACT, urai teks content ke dalam sub-field nomor telepon, alamat, dan jam buka
     if (section.type === 'CONTACT') {
-      parseContactContentToFields('edit', section.content || '');
+      parseContactContentToFields('edit', safeContent);
     } else if (section.type === 'NAVBAR') {
       try {
         if (section.content && section.content.trim().startsWith('[')) {
@@ -2974,9 +3207,32 @@ function setupEventListeners() {
     const formAddSection = document.getElementById('formAddSection');
     if (btnAddSectionManual && modalAddSection) {
       btnAddSectionManual.addEventListener('click', () => {
-        // Inisialisasi field sesuai nilai dropdown saat ini
-        const currentType = addSectionType?.value || 'ABOUT';
-        updateSectionFormFields('add', currentType);
+        // Reset form dan pastikan semua input bersih tanpa sisa nilai sebelumnya
+        if (formAddSection) formAddSection.reset();
+        if (addSectionType) addSectionType.value = 'HERO';
+
+        const titleInput = document.getElementById('addSectionTitle');
+        const subInput = document.getElementById('addSectionSubtitle');
+        const contentInput = document.getElementById('addSectionContent');
+        if (titleInput) titleInput.value = '';
+        if (subInput) subInput.value = '';
+        if (contentInput) contentInput.value = '';
+
+        const phone = document.getElementById('addContactPhone');
+        const addr = document.getElementById('addContactAddress');
+        const hours = document.getElementById('addContactHours');
+        if (phone) phone.value = '';
+        if (addr) addr.value = '';
+        if (hours) hours.value = '';
+
+        ADD_NAV_LINKS = [
+          { label: 'Beranda', target: '#hero' },
+          { label: 'Tentang Kami', target: '#about' },
+          { label: 'Daftar Menu', target: '#catalog' },
+          { label: 'Kontak', target: '#contact' }
+        ];
+
+        updateSectionFormFields('add', 'HERO');
         modalAddSection.classList.remove('hidden');
       });
     }
@@ -3015,6 +3271,7 @@ function setupEventListeners() {
           const res = store.addSection({ type, title, subtitle, content });
           if (res.success) {
             renderCanvas();
+            renderSidebar();
             modalAddSection.classList.add('hidden');
             formAddSection.reset();
             showToast(`Bagian ${type} berhasil ditambahkan dan ditampilkan!`, 'success');
@@ -3041,7 +3298,10 @@ function setupEventListeners() {
           const subtitle = document.getElementById('editSectionSubtitle').value;
           let content = document.getElementById('editSectionContent').value;
 
-          if (type === 'CONTACT') {
+          if (type === 'NAVBAR') {
+            syncNavLinksToContent('edit');
+            content = document.getElementById('editSectionContent').value;
+          } else if (type === 'CONTACT') {
             const phone = (document.getElementById('editContactPhone')?.value || '').trim();
             const addr = (document.getElementById('editContactAddress')?.value || '').trim();
             const hours = (document.getElementById('editContactHours')?.value || '').trim();
@@ -3064,7 +3324,15 @@ function setupEventListeners() {
 
           if (res.success) {
             renderCanvas();
+            renderSidebar();
             modalEditSection.classList.add('hidden');
+            showToast('Perubahan bagian berhasil disimpan!', 'success');
+          }
+        } catch (e) {
+          console.error('Error submit formEditSection:', e);
+        }
+      });
+    }
             showToast('Perubahan bagian berhasil disimpan!', 'success');
           }
         } catch (e) {

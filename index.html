@@ -359,20 +359,45 @@
       </div>
 
       <!-- TAB 2: KONTEN BAGIAN WEBSITE -->
-      <div id="tabSectionsContent" class="hidden flex-1 min-h-0 overflow-y-auto p-3 pb-36 space-y-2">
-        <div class="flex items-center justify-between px-1 mb-1">
-          <span class="inline-flex items-center gap-1.5 font-bold text-xs text-slate-800">
-            <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>
-            Komponen Siap Di-Drag:
-          </span>
-          <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
-            <i data-lucide="move" class="w-2.5 h-2.5"></i>
-            Tarik ke kanvas
-          </span>
+      <div id="tabSectionsContent" class="hidden flex-1 min-h-0 overflow-y-auto p-3 pb-36 space-y-3">
+        
+        <!-- SUB-BAGIAN 1: STRUKTUR BAGIAN AKTIF DI KANVAS -->
+        <div class="bg-slate-50/80 p-2.5 rounded-xl border border-slate-200">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="inline-flex items-center gap-1.5 font-bold text-xs text-slate-900">
+              <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>
+              Bagian Aktif di Kanvas
+            </span>
+            <span id="badgeActiveSectionsCount" class="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2 py-0.5 rounded-full">
+              0 Bagian
+            </span>
+          </div>
+          <p class="text-[10px] text-slate-500 mb-2">Semua bagian yang ada di kanvas. Klik <strong>Sorot</strong> untuk fokus ke posisi bagian.</p>
+          
+          <div id="sidebarActiveSectionsList" class="space-y-1.5">
+            <!-- Diisi via renderSidebarActiveSections() -->
+          </div>
         </div>
-        <div id="sidebarDraggableSectionsList" class="space-y-2">
-          <!-- Diisi via renderSidebarSections() -->
+
+        <div class="border-t border-slate-200 my-1"></div>
+
+        <!-- SUB-BAGIAN 2: KOMPONEN SIAP DI-DRAG / TAMBAH BARU -->
+        <div>
+          <div class="flex items-center justify-between px-1 mb-1.5">
+            <span class="inline-flex items-center gap-1.5 font-bold text-xs text-slate-800">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+              Tambah Komponen Baru:
+            </span>
+            <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full">
+              <i data-lucide="move" class="w-2.5 h-2.5"></i>
+              Tarik ke kanvas
+            </span>
+          </div>
+          <div id="sidebarDraggableSectionsList" class="space-y-2">
+            <!-- Diisi via renderSidebarSections() -->
+          </div>
         </div>
+
       </div>
 
       <div class="p-2 border-t border-slate-200 bg-slate-50 text-[10px] text-slate-500 flex items-center justify-between flex-shrink-0">
@@ -697,7 +722,7 @@
         </div>
 
         <!-- Field 3: Konten / Isi Teks Lengkap -->
-        <div>
+        <div id="editContentGroup">
           <label id="editContentLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Isi Teks / Penjelasan</label>
           <p id="editContentHelper" class="text-[11px] text-slate-500 mb-1.5">Penjelasan lengkap mengenai bagian ini</p>
           <textarea id="editSectionContent" rows="3" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition"></textarea>
@@ -731,11 +756,11 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Pilih Jenis Bagian</label>
           <select id="addSectionType" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl bg-slate-50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition">
+            <option value="HERO" selected>HERO (Banner Sambutan & Judul Toko)</option>
             <option value="NAVBAR">NAVBAR / NAVIGASI (Menu Navigasi Atas & Tautan Halaman)</option>
             <option value="ABOUT">ABOUT (Cerita Profil & Keunggulan Usaha)</option>
             <option value="CONTACT">CONTACT (Kontak WhatsApp, Alamat & Jam Buka)</option>
             <option value="CATALOG">CATALOG (Etalase Daftar Menu & Produk)</option>
-            <option value="HERO">HERO (Banner Sambutan & Judul Toko)</option>
             <option value="FOOTER">FOOTER (Catatan Kaki & Hak Cipta)</option>
           </select>
         </div>
@@ -807,7 +832,7 @@
         </div>
 
         <!-- Field 3: Konten / Isi Teks Lengkap -->
-        <div>
+        <div id="addContentGroup">
           <label id="addContentLabel" class="block text-xs font-bold text-slate-700 uppercase mb-0.5">Isi Cerita / Teks Lengkap</label>
           <p id="addContentHelper" class="text-[11px] text-slate-500 mb-1.5">Tuliskan penjelasan detail yang ingin Anda sampaikan</p>
           <textarea id="addSectionContent" rows="3" class="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-brand-600 transition"></textarea>

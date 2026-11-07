@@ -508,11 +508,16 @@ class InMemoryStore {
       }
 
       const initialLength = this.sections.length;
-      this.sections = this.sections.filter(s => {
-        const matchId = s.id === targetIdOrType;
-        const matchType = s.type.toUpperCase() === targetIdOrType.toString().toUpperCase().trim();
-        return !(matchId || matchType);
-      });
+      const foundById = this.sections.some(s => s.id === targetIdOrType);
+
+      if (foundById) {
+        // Hapus HANYA satu bagian yang memiliki id spesifik ini (aman jika ada multiple hero/bagian bertipe sama)
+        this.sections = this.sections.filter(s => s.id !== targetIdOrType);
+      } else {
+        // Jika bukan ID, hapus berdasarkan nama tipe (misal: 'FOOTER')
+        const targetType = targetIdOrType.toString().toUpperCase().trim();
+        this.sections = this.sections.filter(s => s.type.toUpperCase() !== targetType);
+      }
 
       if (this.sections.length === initialLength) {
         return { success: false, error: 'Bagian yang ingin dihapus tidak ditemukan.' };
