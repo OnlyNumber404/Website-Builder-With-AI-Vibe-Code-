@@ -615,6 +615,7 @@ function setupContactFieldSync(prefix) {
     const phoneInput = document.getElementById(`${prefix}ContactPhone`);
     const addrInput = document.getElementById(`${prefix}ContactAddress`);
     const hoursInput = document.getElementById(`${prefix}ContactHours`);
+    const msgInput = document.getElementById(`${prefix}ContactWaMessage`);
     const contentTextarea = document.getElementById(`${prefix}SectionContent`);
 
     function syncToContent() {
@@ -622,11 +623,13 @@ function setupContactFieldSync(prefix) {
         const phone = (phoneInput?.value || '').trim();
         const addr = (addrInput?.value || '').trim();
         const hours = (hoursInput?.value || '').trim();
+        const msg = (msgInput?.value || '').trim();
 
         const parts = [];
         if (phone) parts.push(`WhatsApp: ${phone}`);
         if (addr) parts.push(`Alamat: ${addr}`);
         if (hours) parts.push(`Buka: ${hours}`);
+        if (msg) parts.push(`Pesan: ${msg}`);
 
         if (contentTextarea && parts.length > 0) {
           contentTextarea.value = parts.join(' | ');
@@ -648,18 +651,33 @@ function setupContactFieldSync(prefix) {
       hoursInput.addEventListener('input', syncToContent);
       hoursInput.dataset.hasSync = 'true';
     }
+    if (msgInput && !msgInput.dataset.hasSync) {
+      msgInput.addEventListener('input', syncToContent);
+      msgInput.dataset.hasSync = 'true';
+    }
   } catch (err) {
     console.error('Error setupContactFieldSync:', err);
   }
 }
 
 // Mengurai teks content kontak yang ada untuk mengisi field terpisah di modal edit
-function parseContactContentToFields(prefix, rawContent) {
+function parseContactContentToFields(prefix, rawContent, section) {
   try {
-    if (!rawContent) return;
     const phoneInput = document.getElementById(`${prefix}ContactPhone`);
     const addrInput = document.getElementById(`${prefix}ContactAddress`);
     const hoursInput = document.getElementById(`${prefix}ContactHours`);
+    const msgInput = document.getElementById(`${prefix}ContactWaMessage`);
+
+    if (msgInput) {
+      let waMsg = section?.waMessage || '';
+      if (!waMsg && rawContent) {
+        const msgMatch = rawContent.match(/(?:Pesan(?:\s*WA)?|Template(?:\s*Chat)?):\s*([^|]+)/i);
+        if (msgMatch) waMsg = msgMatch[1].trim();
+      }
+      msgInput.value = waMsg;
+    }
+
+    if (!rawContent) return;
 
     // Ekstrak WhatsApp / Telepon
     const phoneMatch = rawContent.match(/(?:WhatsApp|WA|Telepon|Telp|No\.?):\s*([^|]+)/i);
@@ -2248,15 +2266,32 @@ function renderCanvas() {
           }
 
           case 'CONTACT': {
-            let waHref = 'https://wa.me/?text=Halo%20saya%20ingin%20memesan%20makanan';
+            let customMsg = (section.waMessage || '').trim();
+            if (!customMsg) {
+              const msgMatch = (section.content || '').match(/(?:Pesan(?:\s*WA)?|Template(?:\s*Chat)?):\s*([^|]+)/i);
+              if (msgMatch) customMsg = msgMatch[1].trim();
+            }
+            if (!customMsg) {
+              customMsg = 'Halo, saya ingin memesan menu dari website Anda.';
+            }
+
+            const encodedMsg = encodeURIComponent(customMsg);
+            let waHref = `https://wa.me/?text=${encodedMsg}`;
             const waMatch = (section.content || '').match(/(?:WhatsApp|WA|Telepon|Telp|No\.?):\s*([0-9+\-\s]+)/i);
             if (waMatch) {
               let cleanDigits = waMatch[1].replace(/\D/g, '');
               if (cleanDigits.startsWith('0')) cleanDigits = '62' + cleanDigits.slice(1);
               if (cleanDigits.length >= 9) {
-                waHref = `https://wa.me/${cleanDigits}?text=Halo%20saya%20ingin%20memesan%20makanan`;
+                waHref = `https://wa.me/${cleanDigits}?text=${encodedMsg}`;
               }
             }
+
+            // Bersihkan teks info kontak untuk tampilan kartu
+            const cleanDisplayContent = (section.content || 'WhatsApp: 0812-xxxx-xxxx | Alamat: Toko Kami')
+              .split('|')
+              .map(p => p.trim())
+              .filter(p => !p.match(/^(?:Pesan(?:\s*WA)?|Template(?:\s*Chat)?):/i))
+              .join(' | ');
 
             innerHTML = `
               <div id="section-contact" class="py-14 px-6 sm:px-12" style="background-color: ${theme.backgroundColor}; color: ${theme.textColor}; font-family: '${theme.bodyFont}', sans-serif;">
@@ -2274,11 +2309,11 @@ function renderCanvas() {
                       <i data-lucide="map-pin" class="w-4 h-4"></i>
                       <span>Informasi Alamat & Kontak:</span>
                     </div>
-                    <p class="whitespace-pre-line font-medium" style="color: ${theme.textColor};">${escapeHtml(section.content || 'WhatsApp: 0812-xxxx-xxxx | Alamat: Toko Kami')}</p>
+                    <p class="whitespace-pre-line font-medium" style="color: ${theme.textColor};">${escapeHtml(cleanDisplayContent || section.content)}</p>
                   </div>
 
-                  <div>
-                    <a href="${waHref}" target="_blank" class="inline-flex items-center gap-2 px-6 py-3 text-white font-bold rounded-xl shadow-lg transition text-sm hover:opacity-90" style="background-color: ${theme.primaryColor};">
+                  <div class="space-y-2">
+                    <a href="${waHref}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-6 py-3 text-white font-bold rounded-xl shadow-lg transition text-sm hover:opacity-90 transform hover:scale-105" style="background-color: ${theme.primaryColor};">
                       <i data-lucide="message-circle" class="w-4 h-4"></i>
                       <span>Chat Langsung via WhatsApp</span>
                     </a>
@@ -2819,7 +2854,7 @@ function openEditSectionModal(id) {
 
     // Jika tipe CONTACT, urai teks content ke dalam sub-field nomor telepon, alamat, dan jam buka
     if (section.type === 'CONTACT') {
-      parseContactContentToFields('edit', safeContent);
+      parseContactContentToFields('edit', safeContent, section);
     } else if (section.type === 'NAVBAR') {
       try {
         if (section.content && section.content.trim().startsWith('[')) {
@@ -3198,9 +3233,11 @@ function setupEventListeners() {
         const phone = document.getElementById('addContactPhone');
         const addr = document.getElementById('addContactAddress');
         const hours = document.getElementById('addContactHours');
+        const waMsg = document.getElementById('addContactWaMessage');
         if (phone) phone.value = '';
         if (addr) addr.value = '';
         if (hours) hours.value = '';
+        if (waMsg) waMsg.value = '';
 
         ADD_NAV_LINKS = [
           { label: 'Beranda', target: '#hero' },
@@ -3224,6 +3261,7 @@ function setupEventListeners() {
           const title = document.getElementById('addSectionTitle').value;
           const subtitle = document.getElementById('addSectionSubtitle').value;
           let content = document.getElementById('addSectionContent').value;
+          let waMessage = '';
 
           // Jika tipe NAVBAR, pastikan content tersusun dari dropdown
           if (type === 'NAVBAR') {
@@ -3236,16 +3274,18 @@ function setupEventListeners() {
             const phone = (document.getElementById('addContactPhone')?.value || '').trim();
             const addr = (document.getElementById('addContactAddress')?.value || '').trim();
             const hours = (document.getElementById('addContactHours')?.value || '').trim();
-            if (phone || addr || hours) {
+            waMessage = (document.getElementById('addContactWaMessage')?.value || '').trim();
+            if (phone || addr || hours || waMessage) {
               const parts = [];
               if (phone) parts.push(`WhatsApp: ${phone}`);
               if (addr) parts.push(`Alamat: ${addr}`);
               if (hours) parts.push(`Buka: ${hours}`);
+              if (waMessage) parts.push(`Pesan: ${waMessage}`);
               content = parts.join(' | ');
             }
           }
 
-          const res = store.addSection({ type, title, subtitle, content });
+          const res = store.addSection({ type, title, subtitle, content, waMessage });
           if (res.success) {
             renderCanvas();
             renderSidebar();
@@ -3274,6 +3314,7 @@ function setupEventListeners() {
           const title = document.getElementById('editSectionTitle').value;
           const subtitle = document.getElementById('editSectionSubtitle').value;
           let content = document.getElementById('editSectionContent').value;
+          let waMessage = '';
 
           if (type === 'NAVBAR') {
             syncNavLinksToContent('edit');
@@ -3282,11 +3323,13 @@ function setupEventListeners() {
             const phone = (document.getElementById('editContactPhone')?.value || '').trim();
             const addr = (document.getElementById('editContactAddress')?.value || '').trim();
             const hours = (document.getElementById('editContactHours')?.value || '').trim();
-            if (phone || addr || hours) {
+            waMessage = (document.getElementById('editContactWaMessage')?.value || '').trim();
+            if (phone || addr || hours || waMessage) {
               const parts = [];
               if (phone) parts.push(`WhatsApp: ${phone}`);
               if (addr) parts.push(`Alamat: ${addr}`);
               if (hours) parts.push(`Buka: ${hours}`);
+              if (waMessage) parts.push(`Pesan: ${waMessage}`);
               content = parts.join(' | ');
             }
           }
@@ -3296,7 +3339,8 @@ function setupEventListeners() {
             type,
             title,
             subtitle,
-            content
+            content,
+            waMessage
           });
 
           if (res.success) {
