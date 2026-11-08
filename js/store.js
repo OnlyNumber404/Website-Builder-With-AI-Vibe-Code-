@@ -48,13 +48,14 @@ function parsePrice(val) {
  * Title (string), Subtitle (string), Content (string), dan OrderIndex (int).
  */
 class Section {
-  constructor({ id = null, type = 'HERO', title = '', subtitle = '', content = '', orderIndex = 1 }) {
+  constructor({ id = null, type = 'HERO', title = '', subtitle = '', content = '', waMessage = '', orderIndex = 1 }) {
     try {
       this.id = id || generateGuid();
       this.type = type ? type.toUpperCase() : 'HERO';
       this.title = title || '';
       this.subtitle = subtitle || '';
       this.content = content || '';
+      this.waMessage = waMessage || '';
       this.orderIndex = parseInt(orderIndex, 10) || 1;
     } catch (err) {
       console.error('Error saat membuat instance Section:', err);
@@ -63,6 +64,7 @@ class Section {
       this.title = 'Judul Bagian';
       this.subtitle = '';
       this.content = '';
+      this.waMessage = '';
       this.orderIndex = 1;
     }
   }
@@ -339,6 +341,7 @@ class InMemoryStore {
           title: 'Hubungi Kami & Pemesanan',
           subtitle: 'Siap melayani pesanan katering, prasmanan, dan nasi kotak',
           content: 'WhatsApp: 0812-3456-7890 | Alamat: Jl. Kenanga No. 24, Pasar Minggu, Jakarta Selatan | Buka setiap hari: 08.00 - 20.00 WIB',
+          waMessage: 'Halo Dapoer Berkah, saya ingin memesan menu katering dari website.',
           orderIndex: 4
         }),
         new Section({
@@ -388,7 +391,7 @@ class InMemoryStore {
   /**
    * Operasi Tambah Komponen
    */
-  addSection({ type, title, subtitle, content, orderIndex }) {
+  addSection({ type, title, subtitle, content, waMessage, orderIndex }) {
     try {
       let newOrderIndex = orderIndex;
 
@@ -419,6 +422,7 @@ class InMemoryStore {
         title: title || 'Bagian Baru',
         subtitle: subtitle || '',
         content: content || '',
+        waMessage: waMessage || '',
         orderIndex: newOrderIndex
       });
 
@@ -434,7 +438,7 @@ class InMemoryStore {
   /**
    * Sisipkan Section pada urutan tertentu (untuk Drag & Drop antar section)
    */
-  insertSectionAt(targetOrderIndex, { type, title, subtitle, content }) {
+  insertSectionAt(targetOrderIndex, { type, title, subtitle, content, waMessage }) {
     try {
       const newSection = new Section({
         id: generateGuid(),
@@ -442,6 +446,7 @@ class InMemoryStore {
         title: title || 'Bagian Baru',
         subtitle: subtitle || '',
         content: content || '',
+        waMessage: waMessage || '',
         orderIndex: targetOrderIndex
       });
 
@@ -464,7 +469,7 @@ class InMemoryStore {
   /**
    * Operasi Edit Komponen
    */
-  updateSection({ targetId, type, title, subtitle, content, orderIndex }) {
+  updateSection({ targetId, type, title, subtitle, content, waMessage, orderIndex }) {
     try {
       let target = null;
       if (targetId) {
@@ -485,6 +490,7 @@ class InMemoryStore {
       if (title !== undefined && title !== null && title !== '') target.title = title;
       if (subtitle !== undefined && subtitle !== null) target.subtitle = subtitle;
       if (content !== undefined && content !== null) target.content = content;
+      if (waMessage !== undefined && waMessage !== null) target.waMessage = waMessage;
       if (type !== undefined && type !== null && type !== '') target.type = type.toUpperCase().trim();
       if (orderIndex !== undefined && orderIndex !== null && !isNaN(orderIndex)) {
         target.orderIndex = parseInt(orderIndex, 10);
