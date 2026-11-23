@@ -4,11 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Sparkles, ArrowRight, Menu, X, Laptop } from 'lucide-react';
+import { Sparkles, ArrowRight, Menu, X, Laptop, LogIn, Store } from 'lucide-react';
+import StudioSelectionModal from './modals/StudioSelectionModal';
+import LoginModal from './modals/LoginModal';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('hero');
+  const [isStudioModalOpen, setIsStudioModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const pathname = usePathname();
 
   const navLinks = [
@@ -101,16 +105,17 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 glass-nav border-b border-slate-200/80 transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+    <>
+      <header className="sticky top-0 z-50 glass-nav border-b border-slate-200/80 transition-all">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20 gap-4 xl:gap-8">
           
           {/* Logo Brand */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-slate-900 via-blue-900 to-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200">
+          <Link href="/" className="flex items-center gap-3 group shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-slate-900 via-blue-900 to-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
               <Sparkles className="w-6 h-6 text-blue-300" />
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col shrink-0">
               <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-slate-900 flex items-center gap-1">
                 NexaWeb<span className="text-blue-600">.ai</span>
               </span>
@@ -120,8 +125,8 @@ export default function Navbar() {
             </div>
           </Link>
 
-          {/* Desktop Nav Links dengan Smooth Sliding Active Indicator */}
-          <nav className="hidden md:flex items-center gap-2 p-1.5 bg-slate-100/70 rounded-2xl border border-slate-200/70">
+          {/* Desktop Nav Links dengan Smooth Sliding Active Indicator (Anti-Wrap & Lega) */}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-2 p-1.5 bg-slate-100/70 rounded-2xl border border-slate-200/70 shrink-0">
             {navLinks.map((link) => {
               const isActive = activeSection === link.id;
               return (
@@ -129,7 +134,7 @@ export default function Navbar() {
                   key={link.id}
                   href={link.href}
                   onClick={(e) => handleNavClick(e, link.id, link.href)}
-                  className={`relative px-4 py-2 text-xs sm:text-sm font-bold transition-colors duration-200 rounded-xl z-10 ${
+                  className={`relative px-3.5 xl:px-4 py-2 text-xs xl:text-sm font-bold transition-colors duration-200 rounded-xl z-10 whitespace-nowrap shrink-0 ${
                     isActive
                       ? 'text-blue-600 font-extrabold'
                       : 'text-slate-600 hover:text-slate-900'
@@ -146,32 +151,54 @@ export default function Navbar() {
                       }}
                     />
                   )}
-                  <span>{link.label}</span>
+                  <span className="whitespace-nowrap">{link.label}</span>
                 </a>
               );
             })}
           </nav>
 
-          {/* Action CTA */}
-          <div className="hidden sm:flex items-center gap-3">
+          {/* Action CTA (AC-NAV-1, AC-NAV-2, AC-NAV-3) */}
+          <div className="hidden lg:flex items-center gap-2.5 xl:gap-3 shrink-0">
+            {/* Tombol Utama: Coba Demo Gratis */}
             <Link
               href="/studio"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-sm shadow-md hover:bg-slate-800 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
+              className="hidden xl:inline-flex items-center gap-2 px-3.5 xl:px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs xl:text-sm transition-all duration-200 shadow-2xs hover:shadow-xs transform hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap shrink-0"
             >
-              <Laptop className="w-4 h-4 text-blue-400" />
+              <Laptop className="w-4 h-4 text-slate-500 shrink-0" />
               <span>Coba Demo Gratis</span>
-              <ArrowRight className="w-4 h-4 text-slate-400" />
             </Link>
+
+            {/* AC-NAV-1: Tombol "Studio" membuka Studio Selection Wizard */}
+            <button
+              type="button"
+              onClick={() => setIsStudioModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 xl:px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs xl:text-sm shadow-md shadow-blue-500/25 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap shrink-0"
+            >
+              <Sparkles className="w-4 h-4 text-blue-200 shrink-0" />
+              <span>Studio</span>
+            </button>
+
+            {/* AC-NAV-2: Tombol "Masuk / Login" di sebelah kanan tombol Studio */}
+            <button
+              type="button"
+              onClick={() => setIsLoginModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 xl:px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs xl:text-sm shadow-sm transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap shrink-0"
+            >
+              <LogIn className="w-4 h-4 text-blue-400 shrink-0" />
+              <span>Masuk / Login</span>
+            </button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-2">
-            <Link
-              href="/studio"
-              className="px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold"
+          {/* Mobile & Tablet (< lg) Menu Button */}
+          <div className="lg:hidden flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsStudioModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-xs whitespace-nowrap shrink-0"
             >
-              Demo
-            </Link>
+              <Sparkles className="w-3.5 h-3.5 text-blue-200 shrink-0" />
+              <span>Studio</span>
+            </button>
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -185,9 +212,9 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Drawer Menu (< lg) */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-slate-200 px-4 pt-3 pb-6 space-y-2 shadow-xl">
+        <div className="lg:hidden bg-white border-b border-slate-200 px-4 pt-3 pb-6 space-y-2.5 shadow-xl">
           {navLinks.map((link) => {
             const isActive = activeSection === link.id;
             return (
@@ -206,19 +233,60 @@ export default function Navbar() {
               </a>
             );
           })}
-          <div className="pt-3">
+          
+          <div className="pt-3 space-y-2 border-t border-slate-100">
+            {/* Tombol Studio di Mobile */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsStudioModalOpen(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white font-extrabold text-sm shadow-md"
+            >
+              <Sparkles className="w-4 h-4 text-blue-200" />
+              <span>Buka Studio Selection Wizard</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+
+            {/* Tombol Coba Demo Gratis di Mobile */}
             <Link
               href="/studio"
               onClick={() => setMobileMenuOpen(false)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white font-bold text-sm shadow-md"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs"
             >
-              <Laptop className="w-4 h-4" />
-              <span>Buka Studio Builder (Gratis)</span>
-              <ArrowRight className="w-4 h-4" />
+              <Laptop className="w-4 h-4 text-slate-500" />
+              <span>Coba Demo Bebas Langsung</span>
             </Link>
+
+            {/* Tombol Masuk / Login di Mobile */}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setIsLoginModalOpen(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
+            >
+              <LogIn className="w-4 h-4 text-blue-400" />
+              <span>Masuk / Login Akun</span>
+            </button>
           </div>
         </div>
       )}
-    </header>
+      </header>
+
+      {/* Modals: Studio Selection & Setup Wizard + Login (Berada di luar header agar tidak terhalang stacking context) */}
+      <StudioSelectionModal
+        isOpen={isStudioModalOpen}
+        onClose={() => setIsStudioModalOpen(false)}
+      />
+
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onOpenStudioWizard={() => setIsStudioModalOpen(true)}
+      />
+    </>
   );
 }

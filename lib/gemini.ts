@@ -29,6 +29,192 @@ export async function processAiPrompt(
   const lower = prompt.toLowerCase().trim();
 
   // =========================================================================
+  // 0. EXPLICIT @MENTION TARGETING (e.g. @Hero, @About, @Kontak, @Katalog, @Navbar, @Footer)
+  // =========================================================================
+  if (prompt.includes('@')) {
+    const mentionMatch = prompt.match(/@(Hero|About|Kontak|Contact|Katalog|Catalog|Navbar|Navigasi|Footer)(?:\s*#?\d+)?/i);
+    if (mentionMatch) {
+      const rawTarget = mentionMatch[1].toUpperCase();
+      const afterMention = prompt.replace(mentionMatch[0], '').trim();
+      const lowerAfter = afterMention.toLowerCase();
+
+      let secType: SectionType = 'HERO';
+      let secLabel = 'Hero Banner Utama';
+
+      if (rawTarget.includes('ABOUT')) {
+        secType = 'ABOUT';
+        secLabel = 'Tentang Usaha (About)';
+      } else if (rawTarget.includes('KONTAK') || rawTarget.includes('CONTACT')) {
+        secType = 'CONTACT';
+        secLabel = 'Kontak WhatsApp & Toko';
+      } else if (rawTarget.includes('KATALOG') || rawTarget.includes('CATALOG')) {
+        secType = 'CATALOG';
+        secLabel = 'Katalog Menu';
+      } else if (rawTarget.includes('NAVBAR') || rawTarget.includes('NAVIGASI')) {
+        secType = 'NAVBAR';
+        secLabel = 'Navbar / Nama Toko';
+      } else if (rawTarget.includes('FOOTER')) {
+        secType = 'FOOTER';
+        secLabel = 'Footer';
+      }
+
+      // 1. Ubah No WhatsApp
+      if (
+        lowerAfter.includes('wa') ||
+        lowerAfter.includes('whatsapp') ||
+        lowerAfter.includes('telepon') ||
+        lowerAfter.includes('telp') ||
+        lowerAfter.includes('hp')
+      ) {
+        const phoneMatch = afterMention.match(/(?:(?:\+?62|0)8[0-9\-\s]{7,16})/);
+        const cleanPhone = phoneMatch ? phoneMatch[0].trim() : '0812-9999-8888';
+        return {
+          reply: `Beres! Nomor WhatsApp pada @${mentionMatch[1]} berhasil diubah menjadi "${cleanPhone}". Tombol pemesanan sekarang otomatis tersambung ke nomor baru.`,
+          action: {
+            type: 'UPDATE_SECTION',
+            payload: {
+              sectionType: 'CONTACT',
+              phone: cleanPhone
+            }
+          }
+        };
+      }
+
+      // 2. Ubah Alamat Fisik
+      if (lowerAfter.includes('alamat') || lowerAfter.includes('lokasi')) {
+        const cleanVal = afterMention.replace(/.*?(?:jadi|menjadi|ke|=|:\s*)/i, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+        return {
+          reply: `Alamat toko pada @${mentionMatch[1]} berhasil diperbarui menjadi: "${cleanVal}".`,
+          action: {
+            type: 'UPDATE_SECTION',
+            payload: {
+              sectionType: 'CONTACT',
+              address: cleanVal
+            }
+          }
+        };
+      }
+
+      // 3. Ubah Jam Buka Operasional
+      if (lowerAfter.includes('jam') || lowerAfter.includes('jadwal') || lowerAfter.includes('operasional')) {
+        const cleanVal = afterMention.replace(/.*?(?:jadi|menjadi|ke|=|:\s*)/i, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+        return {
+          reply: `Jadwal buka toko pada @${mentionMatch[1]} berhasil diperbarui menjadi: "${cleanVal}".`,
+          action: {
+            type: 'UPDATE_SECTION',
+            payload: {
+              sectionType: 'CONTACT',
+              hours: cleanVal
+            }
+          }
+        };
+      }
+
+      // 4. Tambah Menu Baru di Katalog
+      if (secType === 'CATALOG' && (lowerAfter.includes('tambah') || lowerAfter.includes('masukkan'))) {
+        const priceMatch = afterMention.match(/(?:harga|rp|sebesar|senilai)?\s*(\d[\d\.\s]{3,})/i);
+        const price = priceMatch ? parseInt(priceMatch[1].replace(/\D/g, ''), 10) : 15000;
+        const namePart = afterMention
+          .replace(/.*?(?:tambah(?:\s*menu)?|masukkan(?:\s*menu)?)\s*:?\s*/i, '')
+          .replace(/(?:harga|rp|sebesar|senilai)\s*[\d\.\s]+/i, '')
+          .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
+          .trim();
+        const prodName = namePart || 'Menu Spesial Baru';
+
+        return {
+          reply: `Menu baru "${prodName}" seharga Rp ${price.toLocaleString('id-ID')} berhasil ditambahkan ke @${mentionMatch[1]} dan langsung masuk ke daftar Item Menu!`,
+          action: {
+            type: 'ADD_PRODUCT',
+            payload: {
+              name: prodName,
+              price: price,
+              category: 'Makanan Utama'
+            }
+          }
+        };
+      }
+
+      // 5. Hapus Menu di Katalog
+      if (secType === 'CATALOG' && (lowerAfter.includes('hapus') || lowerAfter.includes('buang'))) {
+        const prodName = afterMention
+          .replace(/.*?(?:hapus|buang)(?:\s*menu)?\s*:?\s*/i, '')
+          .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
+          .trim();
+        return {
+          reply: `Menu "${prodName}" berhasil dihapus dari katalog kanvas @${mentionMatch[1]}!`,
+          action: {
+            type: 'DELETE_PRODUCT',
+            payload: {
+              query: prodName
+            }
+          }
+        };
+      }
+
+      // 6. Sub-Judul Bagian
+      if (lowerAfter.includes('subjudul') || lowerAfter.includes('sub-judul') || lowerAfter.includes('keterangan')) {
+        const cleanVal = afterMention.replace(/.*?(?:jadi|menjadi|ke|=|:\s*)/i, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+        return {
+          reply: `Sub-judul pada bagian @${mentionMatch[1]} telah berhasil diubah menjadi: "${cleanVal}".`,
+          action: {
+            type: 'UPDATE_SECTION',
+            payload: {
+              sectionType: secType,
+              subtitle: cleanVal
+            }
+          }
+        };
+      }
+
+      // 7. Isi Konten / Cerita Usaha
+      if (lowerAfter.includes('isi') || lowerAfter.includes('konten') || lowerAfter.includes('cerita') || lowerAfter.includes('deskripsi')) {
+        const cleanVal = afterMention.replace(/.*?(?:jadi|menjadi|ke|=|:\s*)/i, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+        return {
+          reply: `Isi konten pada bagian @${mentionMatch[1]} telah berhasil diperbarui: "${cleanVal}".`,
+          action: {
+            type: 'UPDATE_SECTION',
+            payload: {
+              sectionType: secType,
+              content: cleanVal
+            }
+          }
+        };
+      }
+
+      // 8. Kalimat Aksi / Tombol CTA
+      if (lowerAfter.includes('kalimat') || lowerAfter.includes('tombol') || lowerAfter.includes('cta')) {
+        const cleanVal = afterMention.replace(/.*?(?:jadi|menjadi|ke|=|:\s*)/i, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+        return {
+          reply: `Kalimat aksi pada bagian @${mentionMatch[1]} telah berhasil diubah menjadi: "${cleanVal}".`,
+          action: {
+            type: 'UPDATE_SECTION',
+            payload: {
+              sectionType: secType,
+              content: cleanVal
+            }
+          }
+        };
+      }
+
+      // 9. Judul Utama (Default)
+      const cleanTitle = afterMention.replace(/.*?(?:ubah\s*judul(?:\s*jadi)?|ganti\s*judul(?:\s*jadi)?|judul(?:\s*jadi)?|jadi|menjadi|ke|=|:\s*)/i, '').replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+      const finalTitle = cleanTitle || 'Sajian Spesial Toko';
+
+      return {
+        reply: `Siap! Judul utama pada bagian @${mentionMatch[1]} telah berhasil diubah menjadi: "${finalTitle}".`,
+        action: {
+          type: 'UPDATE_SECTION',
+          payload: {
+            sectionType: secType,
+            title: finalTitle,
+            subtitle: finalTitle.length < 35 && secType === 'HERO' ? `Sajian istimewa dari ${finalTitle}` : undefined
+          }
+        }
+      };
+    }
+  }
+
+  // =========================================================================
   // 1. DETERMINISTIC PRE-FLIGHT (GARANSI 100% BEKERJA CEPAT & AKURAT)
   // =========================================================================
 
@@ -621,7 +807,7 @@ Kembalikan HANYA JSON murni tanpa pembungkus \`\`\`json.
     }
 
     return {
-      reply: `Sip! Menu "${name}" dengan harga Rp ${price.toLocaleString('id-ID')} (${category}) telah berhasil ditambahkan ke katalog kanvas website Anda.`,
+      reply: `Sip! Menu "${name}" dengan harga Rp ${price.toLocaleString('id-ID')} (${category}) telah berhasil ditambahkan ke katalog kanvas dan langsung terdaftar di Item Menu Anda!`,
       action: {
         type: 'ADD_PRODUCT',
         payload: {
