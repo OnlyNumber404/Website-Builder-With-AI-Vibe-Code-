@@ -29,7 +29,11 @@ import {
   Check,
   PackageOpen,
   Coffee,
-  CheckCircle2
+  CheckCircle2,
+  Undo2,
+  Redo2,
+  Rocket,
+  Download
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -49,6 +53,17 @@ import {
 } from '@/lib/defaultData';
 import AiCopilotSidebar from '@/components/studio/AiCopilotSidebar';
 import SectionModals from '@/components/studio/SectionModals';
+import { downloadWebsiteZip } from '@/lib/exportWebsite';
+import { DeploySuccessModal } from '@/components/modals/DeploySuccessModal';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
+
+interface CanvasSnapshot {
+  sections: SectionItem[];
+  products: ProductItem[];
+  paletteItems: ProductItem[];
+  activeTheme: DesignTheme;
+  activeDesign: DesignTemplate;
+}
 
 export default function StudioPage() {
   // 1. Data Store State
@@ -58,12 +73,127 @@ export default function StudioPage() {
   const [activeTheme, setActiveTheme] = useState<DesignTheme>(DEFAULT_THEMES[0]);
   const [activeDesign, setActiveDesign] = useState<DesignTemplate>(DEFAULT_TEMPLATES[0]);
 
+  // Undo & Redo History System (Dibatasi Maksimal 3x Sebelum & 3x Sesudah)
+  const [history, setHistory] = useState<CanvasSnapshot[]>([
+    {
+      sections: INITIAL_SECTIONS,
+      products: INITIAL_PRODUCTS,
+      paletteItems: INITIAL_PALETTE_ITEMS,
+      activeTheme: DEFAULT_THEMES[0],
+      activeDesign: DEFAULT_TEMPLATES[0]
+    }
+  ]);
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const isHistoryActionRef = React.useRef<boolean>(false);
+  const isInitialMountRef = React.useRef<boolean>(true);
+  const lastRecordedRef = React.useRef<string>('');
+
+  // Sinkronisasi Riwayat Canvas: Simpan snapshot setiap ada perubahan (Maks. 3 Undo & 3 Redo)
+  useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      lastRecordedRef.current = JSON.stringify({
+        sections,
+        products,
+        paletteItems,
+        themeId: activeTheme.id,
+        designId: activeDesign.id
+      });
+      return;
+    }
+
+    if (isHistoryActionRef.current) {
+      isHistoryActionRef.current = false;
+      lastRecordedRef.current = JSON.stringify({
+        sections,
+        products,
+        paletteItems,
+        themeId: activeTheme.id,
+        designId: activeDesign.id
+      });
+      return;
+    }
+
+    const currentKey = JSON.stringify({
+      sections,
+      products,
+      paletteItems,
+      themeId: activeTheme.id,
+      designId: activeDesign.id
+    });
+
+    if (currentKey === lastRecordedRef.current) {
+      return;
+    }
+    lastRecordedRef.current = currentKey;
+
+    const newSnapshot: CanvasSnapshot = {
+      sections: JSON.parse(JSON.stringify(sections)),
+      products: JSON.parse(JSON.stringify(products)),
+      paletteItems: JSON.parse(JSON.stringify(paletteItems)),
+      activeTheme: { ...activeTheme },
+      activeDesign: { ...activeDesign }
+    };
+
+    setHistory((prev) => {
+      const branch = prev.slice(0, historyIndex + 1);
+      const next = [...branch, newSnapshot];
+      // Batasi maksimal 4 snapshot (1 state saat ini + maksimal 3 sebelum / undo)
+      if (next.length > 4) {
+        return next.slice(next.length - 4);
+      }
+      return next;
+    });
+
+    setHistoryIndex((prev) => Math.min(prev + 1, 3));
+  }, [sections, products, paletteItems, activeTheme, activeDesign]);
+
+  const canUndo = historyIndex > 0;
+  const undoCount = historyIndex; // 0, 1, 2, atau 3
+  const canRedo = historyIndex < history.length - 1;
+  const redoCount = history.length - 1 - historyIndex; // 0, 1, 2, atau 3
+
+  const handleUndo = () => {
+    if (!canUndo) return;
+    const targetIdx = historyIndex - 1;
+    const target = history[targetIdx];
+    if (!target) return;
+
+    isHistoryActionRef.current = true;
+    setSections(JSON.parse(JSON.stringify(target.sections)));
+    setProducts(JSON.parse(JSON.stringify(target.products)));
+    setPaletteItems(JSON.parse(JSON.stringify(target.paletteItems)));
+    setActiveTheme({ ...target.activeTheme });
+    setActiveDesign({ ...target.activeDesign });
+    setHistoryIndex(targetIdx);
+  };
+
+  const handleRedo = () => {
+    if (!canRedo) return;
+    const targetIdx = historyIndex + 1;
+    const target = history[targetIdx];
+    if (!target) return;
+
+    isHistoryActionRef.current = true;
+    setSections(JSON.parse(JSON.stringify(target.sections)));
+    setProducts(JSON.parse(JSON.stringify(target.products)));
+    setPaletteItems(JSON.parse(JSON.stringify(target.paletteItems)));
+    setActiveTheme({ ...target.activeTheme });
+    setActiveDesign({ ...target.activeDesign });
+    setHistoryIndex(targetIdx);
+  };
+
   // 2. Editor & UI Control State
   const [isEditorMode, setIsEditorMode] = useState(true);
   const [isPaletteOpen, setIsPaletteOpen] = useState(true);
   const [isAiChatOpen, setIsAiChatOpen] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'items' | 'sections'>('items');
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
+
+  // Drag & Drop State untuk Bagian Web (Sections)
+  const [draggedSectionIndex, setDraggedSectionIndex] = useState<number | null>(null);
+  const [dragOverSectionIndex, setDragOverSectionIndex] = useState<number | null>(null);
+  const [draggedPresetType, setDraggedPresetType] = useState<SectionType | null>(null);
 
   // 3. Form Buat Item Sendiri di Sidebar
   const [newItemName, setNewItemName] = useState('');
@@ -78,12 +208,306 @@ export default function StudioPage() {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [wizardInfo, setWizardInfo] = useState<{ businessType: string; description: string } | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeployModalOpen, setIsDeployModalOpen] = useState(false);
+  const [lastExportedFileName, setLastExportedFileName] = useState('');
 
-  // Cek API Key dari localStorage saat mount
+  // Cek API Key & Wizard Setup dari sessionStorage saat mount (PRD Step 3 Action Flow)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const key = localStorage.getItem('gemini_api_key');
-      setHasApiKey(Boolean(key && key.trim()));
+    if (typeof window === 'undefined') return;
+
+    const key = localStorage.getItem('gemini_api_key');
+    setHasApiKey(Boolean(key && key.trim()));
+
+    // Cek apakah ada data setup dari Studio Selection Wizard (Card 1 Submission)
+    const setupRaw = sessionStorage.getItem('nexaweb_wizard_setup');
+    if (!setupRaw) return;
+
+    try {
+      const setup = JSON.parse(setupRaw);
+      sessionStorage.removeItem('nexaweb_wizard_setup'); // Konsumsi sekali agar tidak menimpa pengeditan manual berikutnya
+
+      const bType: string = setup.businessType || 'Makanan & Minuman (Kuliner)';
+      const desc: string = setup.description || '';
+      const feat = setup.features || {
+        userAuth: true,
+        productCrud: true,
+        whatsappOrder: true,
+        cartEngine: true,
+        contactHours: true
+      };
+
+      setWizardInfo({
+        businessType: bType,
+        description: desc
+      });
+
+      if (bType.includes('Pakaian') || bType.includes('Fashion')) {
+        // Template Usaha Pakaian / Fashion
+        setActiveTheme(DEFAULT_THEMES[3] || DEFAULT_THEMES[0]);
+        setSections([
+          {
+            id: 'sec-nav-1',
+            type: 'NAVBAR',
+            title: 'Aura Mode & Butik',
+            subtitle: 'Koleksi Busana Tren Kekinian',
+            content: JSON.stringify([
+              { label: 'Beranda', target: '#hero' },
+              { label: 'Tentang Kami', target: '#about' },
+              { label: 'Koleksi Busana', target: '#catalog' },
+              { label: 'Kontak WhatsApp', target: '#contact' },
+              ...(feat.userAuth ? [{ label: 'Akun Pelanggan', target: '#auth' }] : [])
+            ]),
+            orderIndex: 0
+          },
+          {
+            id: 'sec-hero-1',
+            type: 'HERO',
+            title: 'Tampil Percaya Diri dengan Koleksi Busana Berkualitas',
+            subtitle: desc || 'Pilihan busana modern & kasual dengan bahan adem terbaik, jahitan rapi, dan desain memikat.',
+            content: feat.whatsappOrder ? 'Order Cepat Langsung via WhatsApp | Garansi Tukar Ukuran' : 'Koleksi Terbaru Musim Ini',
+            orderIndex: 1
+          },
+          {
+            id: 'sec-about-1',
+            type: 'ABOUT',
+            title: 'Cerita Aura Mode',
+            subtitle: 'Hadir untuk mempercantik gaya harian Anda',
+            content: desc || 'Kami menghadirkan koleksi busana berkualitas tinggi yang nyaman dipakai sepanjang hari dengan harga ramah kantong.',
+            orderIndex: 2
+          },
+          {
+            id: 'sec-catalog-1',
+            type: 'CATALOG',
+            title: 'Koleksi Busana Terfavorit',
+            subtitle: 'Model terlaris minggu ini yang siap kirim ke rumah Anda',
+            content: 'Tersedia berbagai pilihan ukuran dan warna menarik.',
+            orderIndex: 3
+          },
+          {
+            id: 'sec-contact-1',
+            type: 'CONTACT',
+            title: 'Pemesanan & Lokasi Toko',
+            subtitle: 'Hubungi admin kami untuk konsultasi ukuran dan ketersediaan stok',
+            content: 'WhatsApp: 0812-9876-5432 | Toko: Pasar Tanah Abang Blok A Lt. 2, Jakarta | Buka: Senin - Sabtu 09.00 - 17.00 WIB',
+            waMessage: 'Halo Aura Mode, saya ingin bertanya tentang koleksi busana di website.',
+            orderIndex: 4
+          },
+          {
+            id: 'sec-footer-1',
+            type: 'FOOTER',
+            title: 'Aura Mode & Butik',
+            subtitle: 'Hak Cipta © 2026 Aura Mode. Seluruh hak cipta dilindungi.',
+            content: 'Website dibuat dengan NexaWeb.ai - Solusi Website Praktis UMKM.',
+            orderIndex: 5
+          }
+        ]);
+
+        setProducts([
+          { id: 'prod-f1', name: 'Kemeja Katun Casual Pria Modern', price: 165000, category: 'Pakaian Pria' },
+          { id: 'prod-f2', name: 'Gamis Silk Bordir Elegan', price: 275000, category: 'Busana Muslim' },
+          { id: 'prod-f3', name: 'Celana Kulot Linen Highwaist', price: 135000, category: 'Bawahan' },
+          { id: 'prod-f4', name: 'Dress Floral Casual Katun', price: 195000, category: 'Gaun & Dress' }
+        ]);
+
+        setPaletteItems([
+          { id: 'pal-f1', name: 'Hijab Voal Motif Premium', price: 45000, category: 'Hijab' },
+          { id: 'pal-f2', name: 'Blazer Formal Santai', price: 260000, category: 'Luaran' },
+          { id: 'pal-f3', name: 'Kaos Polos Katun Combed 30s', price: 75000, category: 'Kaos' },
+          { id: 'pal-f4', name: 'Totebag Kanvas Aesthetic', price: 55000, category: 'Aksesoris' }
+        ]);
+      } else if (bType.includes('Jasa') || bType.includes('Layanan')) {
+        // Template Jasa / Layanan
+        setActiveTheme(DEFAULT_THEMES[3] || DEFAULT_THEMES[0]);
+        setSections([
+          {
+            id: 'sec-nav-1',
+            type: 'NAVBAR',
+            title: 'Mitra Solusi Jasa Profesional',
+            subtitle: 'Layanan Terpercaya & Bergaransi',
+            content: JSON.stringify([
+              { label: 'Beranda', target: '#hero' },
+              { label: 'Tentang Kami', target: '#about' },
+              { label: 'Daftar Layanan', target: '#catalog' },
+              { label: 'Kontak Cepat', target: '#contact' },
+              ...(feat.userAuth ? [{ label: 'Akun Pelanggan', target: '#auth' }] : [])
+            ]),
+            orderIndex: 0
+          },
+          {
+            id: 'sec-hero-1',
+            type: 'HERO',
+            title: 'Solusi Cepat, Rapi, & Bergaransi untuk Kebutuhan Anda',
+            subtitle: desc || 'Didukung tenaga ahli berpengalaman dan peralatan lengkap standar industri. Konsultasi gratis langsung via WhatsApp.',
+            content: feat.whatsappOrder ? 'Konsultasi Gratis via WhatsApp | Respon Cepat 10 Menit' : 'Layanan Jasa Terbaik Bergaransi',
+            orderIndex: 1
+          },
+          {
+            id: 'sec-about-1',
+            type: 'ABOUT',
+            title: 'Tentang Layanan Kami',
+            subtitle: 'Berdedikasi memberikan hasil terbaik sejak 2019',
+            content: desc || 'Kami berkomitmen memberikan pelayanan tepat waktu, transparan tanpa biaya tersembunyi, dan mengutamakan kepuasan pelanggan.',
+            orderIndex: 2
+          },
+          {
+            id: 'sec-catalog-1',
+            type: 'CATALOG',
+            title: 'Paket Pilihan Layanan Kami',
+            subtitle: 'Pilih paket layanan yang sesuai dengan kebutuhan Anda',
+            content: 'Dikerjakan langsung oleh teknisi dan spesialis bersertifikat.',
+            orderIndex: 3
+          },
+          {
+            id: 'sec-contact-1',
+            type: 'CONTACT',
+            title: 'Hubungi Kami & Jadwalkan Layanan',
+            subtitle: 'Kami siap datang ke lokasi Anda atau melayani konsultasi online',
+            content: 'WhatsApp: 0813-8888-9999 | Kantor: Jl. Gatot Subroto No. 45, Jakarta | Jam Operasional: Setiap Hari 08.00 - 21.00 WIB',
+            waMessage: 'Halo Mitra Solusi, saya ingin berkonsultasi mengenai layanan jasa.',
+            orderIndex: 4
+          },
+          {
+            id: 'sec-footer-1',
+            type: 'FOOTER',
+            title: 'Mitra Solusi Jasa Profesional',
+            subtitle: 'Hak Cipta © 2026 Mitra Solusi. Seluruh hak cipta dilindungi.',
+            content: 'Website dibuat dengan NexaWeb.ai - Solusi Website Praktis UMKM.',
+            orderIndex: 5
+          }
+        ]);
+
+        setProducts([
+          { id: 'prod-s1', name: 'Paket Servis Panggilan Standar', price: 150000, category: 'Layanan Utama' },
+          { id: 'prod-s2', name: 'Paket Perawatan Berkala Lengkap', price: 320000, category: 'Layanan Utama' },
+          { id: 'prod-s3', name: 'Pemeriksaan & Diagnosis Cepat', price: 75000, category: 'Pemeriksaan' },
+          { id: 'prod-s4', name: 'Paket Solusi Tuntas Bergaransi 60 Hari', price: 650000, category: 'Paket Spesial' }
+        ]);
+
+        setPaletteItems([
+          { id: 'pal-s1', name: 'Biaya Transport Teknisi Wilayah', price: 30000, category: 'Tambahan' },
+          { id: 'pal-s2', name: 'Penggantian Komponen Standar', price: 125000, category: 'Komponen' },
+          { id: 'pal-s3', name: 'Garansi Servis Tambahan 30 Hari', price: 80000, category: 'Garansi' }
+        ]);
+      } else if (bType.includes('Kerajinan') || bType.includes('Kriya')) {
+        // Template Kerajinan Tangan / Kriya
+        setActiveTheme(DEFAULT_THEMES[1] || DEFAULT_THEMES[0]);
+        setSections([
+          {
+            id: 'sec-nav-1',
+            type: 'NAVBAR',
+            title: 'Kriya Karya Nusantara',
+            subtitle: 'Kerajinan Tangan Autentik & Bernilai Seni',
+            content: JSON.stringify([
+              { label: 'Beranda', target: '#hero' },
+              { label: 'Tentang Pengrajin', target: '#about' },
+              { label: 'Katalog Kriya', target: '#catalog' },
+              { label: 'Pemesanan', target: '#contact' },
+              ...(feat.userAuth ? [{ label: 'Akun Pelanggan', target: '#auth' }] : [])
+            ]),
+            orderIndex: 0
+          },
+          {
+            id: 'sec-hero-1',
+            type: 'HERO',
+            title: 'Karya Seni Kerajinan Tangan Unik & Bernilai Tinggi',
+            subtitle: desc || 'Dibuat dengan ketelitian pengrajin lokal menggunakan bahan alami ramah lingkungan, mempercantik estetika rumah Anda.',
+            content: feat.whatsappOrder ? 'Pesan Produk Kriya Asli Langsung via WhatsApp' : 'Koleksi Kerajinan Nusantara Pilihan',
+            orderIndex: 1
+          },
+          {
+            id: 'sec-about-1',
+            type: 'ABOUT',
+            title: 'Kisah di Balik Setiap Anyaman & Ukiran',
+            subtitle: 'Melestarikan warisan seni budaya Indonesia',
+            content: desc || 'Setiap produk kriya kami dikerjakan secara manual (handmade) oleh para pengrajin desa binaan dengan penuh cinta dan dedikasi.',
+            orderIndex: 2
+          },
+          {
+            id: 'sec-catalog-1',
+            type: 'CATALOG',
+            title: 'Koleksi Kriya Unggulan',
+            subtitle: 'Karya kerajinan tangan terpopuler untuk dekorasi dan cinderamata',
+            content: 'Cocok untuk hadiah istimewa, souvenir acara, dan perabot rumah.',
+            orderIndex: 3
+          },
+          {
+            id: 'sec-contact-1',
+            type: 'CONTACT',
+            title: 'Hubungi Pengrajin & Galeri Kami',
+            subtitle: 'Menerima pesanan custom souvenir dan cinderamata partai besar',
+            content: 'WhatsApp: 0812-7777-6666 | Workshop: Desa Wisata Pengrajin No. 12, Sleman, Yogyakarta | Buka: Setiap Hari 08.00 - 18.00 WIB',
+            waMessage: 'Halo Kriya Karya Nusantara, saya tertarik memesan produk kerajinan tangan.',
+            orderIndex: 4
+          },
+          {
+            id: 'sec-footer-1',
+            type: 'FOOTER',
+            title: 'Kriya Karya Nusantara',
+            subtitle: 'Hak Cipta © 2026 Kriya Karya Nusantara. Seluruh hak cipta dilindungi.',
+            content: 'Website dibuat dengan NexaWeb.ai - Solusi Website Praktis UMKM.',
+            orderIndex: 5
+          }
+        ]);
+
+        setProducts([
+          { id: 'prod-k1', name: 'Tas Anyaman Rotan Motif Etnik', price: 135000, category: 'Anyaman & Rotan' },
+          { id: 'prod-k2', name: 'Vas Bunga Keramik Handmade Berglasur', price: 95000, category: 'Keramik' },
+          { id: 'prod-k3', name: 'Lampu Meja Anyaman Bambu Minimalis', price: 165000, category: 'Dekorasi Rumah' },
+          { id: 'prod-k4', name: 'Dompet Kulit Nabati Jahit Tangan', price: 145000, category: 'Kriya Kulit' }
+        ]);
+
+        setPaletteItems([
+          { id: 'pal-k1', name: 'Tatakan Gelas Kayu Jati Set (6 pcs)', price: 48000, category: 'Peralatan Kayu' },
+          { id: 'pal-k2', name: 'Taplak Meja Tenun Asli Motif Parang', price: 115000, category: 'Kain Tenun' },
+          { id: 'pal-k3', name: 'Kotak Tisu Anyaman Enceng Gondok', price: 52000, category: 'Aksesoris Rumah' }
+        ]);
+      } else if (bType !== 'Makanan & Minuman (Kuliner)') {
+        // Usaha Lainnya (Tulis Sendiri)
+        const customTitle = setup.customBusinessType || bType;
+        setActiveTheme(DEFAULT_THEMES[0]);
+        setSections((prev) =>
+          prev.map((s) => {
+            if (s.type === 'NAVBAR' || s.type === 'FOOTER') {
+              return { ...s, title: customTitle };
+            }
+            if (s.type === 'HERO') {
+              return {
+                ...s,
+                title: `Selamat Datang di ${customTitle}`,
+                subtitle: desc || s.subtitle
+              };
+            }
+            if (s.type === 'ABOUT' && desc) {
+              return {
+                ...s,
+                title: `Tentang ${customTitle}`,
+                content: desc
+              };
+            }
+            return s;
+          })
+        );
+      } else {
+        // Makanan & Minuman dengan deskripsi kustom jika diisi
+        if (desc) {
+          setSections((prev) =>
+            prev.map((s) => {
+              if (s.type === 'ABOUT') {
+                return { ...s, content: desc };
+              }
+              return s;
+            })
+          );
+        }
+      }
+
+      try {
+        confetti({ particleCount: 50, spread: 80, origin: { y: 0.6 } });
+      } catch {}
+    } catch (e) {
+      console.error('Error applying wizard setup:', e);
     }
   }, []);
 
@@ -131,16 +555,134 @@ export default function StudioPage() {
     }
   };
 
+  // Handler Deploy / Ekspor Website Menjadi File ZIP Standalone (index.html & style.css)
+  const handleDeployWebsite = async () => {
+    try {
+      setIsExporting(true);
+      const fileName = await downloadWebsiteZip(sections, products, activeTheme, activeDesign);
+      setLastExportedFileName(fileName);
+      setIsDeployModalOpen(true);
+    } catch (err) {
+      console.error('Error generating website zip:', err);
+      alert('Terjadi kendala saat merakit file ZIP website. Silakan coba kembali.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const addProductToCanvas = (item: ProductItem) => {
     const newProd: ProductItem = {
-      id: 'prod-' + Date.now(),
+      id: item.id || ('prod-' + Date.now()),
       name: item.name,
       price: item.price,
       category: item.category
     };
     setProducts((prev) => [...prev, newProd]);
+    setPaletteItems((prev) => {
+      if (prev.some((p) => p.name.toLowerCase() === newProd.name.toLowerCase())) {
+        return prev;
+      }
+      return [newProd, ...prev];
+    });
     try {
       confetti({ particleCount: 30, spread: 60, origin: { y: 0.7 } });
+    } catch {}
+  };
+
+  // Drag & Drop Handlers untuk Bagian Web (Sections Reorder & Preset Insertion)
+  const handleSectionDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedSectionIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `section:${index}`);
+  };
+
+  const handleSectionDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverSectionIndex !== index) {
+      setDragOverSectionIndex(index);
+    }
+  };
+
+  const handleSectionDragLeave = (e: React.DragEvent, index: number) => {
+    if (dragOverSectionIndex === index) {
+      setDragOverSectionIndex(null);
+    }
+  };
+
+  const handleSectionDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    setDragOverSectionIndex(null);
+
+    // 1. Kasus: Drop Preset Bagian Baru dari Sidebar
+    const presetType = (e.dataTransfer.getData('application/nexaweb-preset') || draggedPresetType) as SectionType | null;
+    if (presetType) {
+      insertPresetSectionAt(presetType, targetIndex);
+      setDraggedPresetType(null);
+      setDraggedSectionIndex(null);
+      return;
+    }
+
+    // 2. Kasus: Pindah / Reorder Bagian yang Sudah Ada
+    let sourceIndex = draggedSectionIndex;
+    if (sourceIndex === null) {
+      const raw = e.dataTransfer.getData('text/plain');
+      if (raw && raw.startsWith('section:')) {
+        sourceIndex = parseInt(raw.split(':')[1], 10);
+      }
+    }
+
+    if (sourceIndex === null || isNaN(sourceIndex) || sourceIndex === targetIndex) {
+      setDraggedSectionIndex(null);
+      return;
+    }
+
+    const reordered = [...sections];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    const destIndex = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+    reordered.splice(destIndex, 0, moved);
+
+    // Update index urutan
+    reordered.forEach((s, idx) => {
+      s.orderIndex = idx;
+    });
+
+    setSections(reordered);
+    setDraggedSectionIndex(null);
+
+    handleHighlightSection(moved.id);
+    try {
+      confetti({ particleCount: 25, spread: 50, origin: { y: 0.6 } });
+    } catch {}
+  };
+
+  const handleSectionDragEnd = () => {
+    setDraggedSectionIndex(null);
+    setDragOverSectionIndex(null);
+    setDraggedPresetType(null);
+  };
+
+  const insertPresetSectionAt = (type: SectionType, targetIndex: number) => {
+    const newSec: SectionItem = {
+      id: 'sec-' + Date.now(),
+      type,
+      title: type === 'HERO' ? 'Penawaran Spesial Terbaru' : `Bagian ${type}`,
+      subtitle: type === 'HERO' ? 'Sajian lezat siap antar untuk Anda' : '',
+      content: type === 'CONTACT' ? 'WhatsApp: 0812-3456-7890 | Alamat: Toko Kami | Buka: 08.00 - 20.00 WIB' : '',
+      waMessage: type === 'CONTACT' ? 'Halo, saya ingin memesan menu dari website Anda.' : undefined,
+      orderIndex: targetIndex
+    };
+
+    const updated = [...sections];
+    const safeTarget = Math.min(Math.max(0, targetIndex), updated.length);
+    updated.splice(safeTarget, 0, newSec);
+    updated.forEach((s, idx) => {
+      s.orderIndex = idx;
+    });
+    setSections(updated);
+    handleHighlightSection(newSec.id);
+    try {
+      confetti({ particleCount: 35, spread: 60, origin: { y: 0.6 } });
     } catch {}
   };
 
@@ -220,12 +762,21 @@ export default function StudioPage() {
     // 2. TAMBAH PRODUK / MENU BARU
     if (action.type === 'ADD_PRODUCT' && action.payload) {
       const p = action.payload;
-      addProductToCanvas({
-        id: 'ai-prod-' + Date.now(),
+      const newProd: ProductItem = {
+        id: 'prod-' + Date.now(),
         name: p.name || 'Menu Spesial',
         price: p.price || 15000,
         category: p.category || 'Makanan Utama'
+      };
+      setProducts((prev) => [...prev, newProd]);
+      setPaletteItems((prev) => {
+        const withoutDup = prev.filter((item) => item.name.toLowerCase() !== newProd.name.toLowerCase());
+        return [newProd, ...withoutDup];
       });
+      // Pastikan sidebar palet terbuka dan mengarah ke tab "Item Menu"
+      setSidebarTab('items');
+      setIsPaletteOpen(true);
+
       // Efek confetti ceria saat produk berhasil ditambah
       try {
         confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
@@ -398,109 +949,81 @@ export default function StudioPage() {
   return (
     <div className="fixed inset-0 h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900 font-sans select-none z-0">
       
-      {/* 1. TOP STUDIO NAVIGATION BAR */}
-      <header className="h-[68px] w-full bg-white border-b border-slate-200 px-4 flex items-center justify-between shrink-0 z-30 shadow-xs">
+      {/* 1. TOP STUDIO NAVIGATION BAR (ZERO HORIZONTAL SCROLL, RESPONSIF & TERSTRUKTUR) */}
+      <header className="h-[64px] w-full bg-white border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 shadow-xs gap-2">
         
-        {/* Kiri: Brand & Kembali ke Home */}
-        <div className="flex items-center gap-3">
+        {/* KIRI: Brand, Kembali, Palet & Riwayat Kanvas */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <Link
             href="/"
-            className="flex items-center gap-2 p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition"
+            className="flex items-center gap-1.5 p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition shrink-0"
             title="Kembali ke Beranda"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-xs font-bold hidden sm:inline">Kembali</span>
+            <span className="text-xs font-bold hidden 2xl:inline whitespace-nowrap">Kembali</span>
           </Link>
 
-          <div className="h-6 w-px bg-slate-200 hidden sm:block" />
-
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm">
-              <Sparkles className="w-4 h-4 text-blue-400" />
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <NexaWebMark size={34} className="rounded-lg shadow-sm" />
             <div className="flex flex-col">
-              <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-900 leading-none">
+              <span className="font-extrabold text-sm tracking-tight text-slate-900 leading-none hidden sm:inline whitespace-nowrap">
                 NexaWeb<span className="text-blue-600">.ai</span>
               </span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 hidden 2xl:inline whitespace-nowrap">
                 Studio Kanvas
               </span>
             </div>
           </div>
-        </div>
 
-        {/* Tengah: Tombol Aksi Alat Editor */}
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto py-1">
+          <div className="h-5 w-px bg-slate-200 hidden sm:block mx-0.5 shrink-0" />
+
           {/* Toggle Palet Samping */}
           <button
             type="button"
             onClick={() => setIsPaletteOpen(!isPaletteOpen)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
+            className={`p-2 2xl:px-2.5 2xl:py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shrink-0 ${
               isPaletteOpen
                 ? 'bg-slate-100 border-slate-300 text-slate-900'
                 : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
+            title={isPaletteOpen ? 'Sembunyikan Palet Item & Bagian' : 'Tampilkan Palet Item & Bagian'}
           >
-            <Layers className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden md:inline">Palet Item</span>
+            <Layers className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="hidden 2xl:inline whitespace-nowrap">Palet</span>
           </button>
 
-          {/* Toggle Preview Fullscreen */}
-          <button
-            type="button"
-            onClick={() => setIsEditorMode(!isEditorMode)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
-              !isEditorMode
-                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            {!isEditorMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5 text-blue-600" />}
-            <span className="hidden sm:inline">{isEditorMode ? 'Preview Fullscreen' : 'Mode Edit'}</span>
-          </button>
+          {/* Tombol Undo & Redo (Maksimal 3x) */}
+          <div className="flex items-center gap-0.5 bg-slate-100/90 p-0.5 rounded-xl border border-slate-200/90 shrink-0">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className="p-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition flex items-center gap-1"
+              title={canUndo ? `Undo / Batalkan Perubahan (Tersisa: ${undoCount}/3x)` : 'Undo tidak tersedia (Maks. 3x)'}
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+              {canUndo && (
+                <span className="text-[9px] font-extrabold bg-blue-100 text-blue-700 px-1 py-0.2 rounded leading-none">
+                  {undoCount}
+                </span>
+              )}
+            </button>
 
-          {/* Gaya Desain (Dengan Lencana Rekomendasi) */}
-          <button
-            type="button"
-            onClick={() => setIsDesignModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5 shadow-2xs"
-          >
-            <Layout className="w-3.5 h-3.5 text-slate-600" />
-            <span className="hidden lg:inline">Gaya Desain</span>
-            <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300">
-              ★ Rekomendasi
-            </span>
-          </button>
-
-          {/* Warna & Font */}
-          <button
-            type="button"
-            onClick={() => setIsThemeModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5"
-          >
-            <Palette className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden lg:inline">Warna & Font</span>
-          </button>
-
-          {/* + Tambah Bagian (CTA Utama) */}
-          <button
-            type="button"
-            onClick={() => setIsAddSectionOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white shadow transition flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5 text-blue-400" />
-            <span>Tambah Bagian</span>
-          </button>
-
-          {/* Kelola Menu */}
-          <button
-            type="button"
-            onClick={() => setIsManageMenuOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5"
-          >
-            <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600" />
-            <span className="hidden xl:inline">Kelola Menu</span>
-          </button>
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={!canRedo}
+              className="p-1.5 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 transition flex items-center gap-1"
+              title={canRedo ? `Redo / Ulangi Perubahan (Tersisa: ${redoCount}/3x)` : 'Redo tidak tersedia (Maks. 3x)'}
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+              {canRedo && (
+                <span className="text-[9px] font-extrabold bg-indigo-100 text-indigo-700 px-1 py-0.2 rounded leading-none">
+                  {redoCount}
+                </span>
+              )}
+            </button>
+          </div>
 
           {/* Reset Demo */}
           <button
@@ -514,40 +1037,139 @@ export default function StudioPage() {
                 setActiveDesign(DEFAULT_TEMPLATES[0]);
               }
             }}
-            title="Reset ke Toko Default"
-            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition"
+            title="Reset ke Toko Default Awal"
+            className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition shrink-0"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* TENGAH: ALAT DESAIN, KONTEN & PREVIEW (TERKELOMPOK RAPI TANPA SCROLL) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          
+          {/* GRUP DESAIN TOKO (Gaya Desain & Warna Font dalam 1 Kapsul Jelas) */}
+          <div className="flex items-center gap-1 p-1 bg-indigo-50/70 rounded-xl border border-indigo-200/70 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsDesignModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 transition flex items-center gap-1.5 shadow-2xs"
+              title="Gaya Desain Website (★ Rekomendasi Utama)"
+            >
+              <Layout className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="hidden lg:inline xl:hidden whitespace-nowrap">Desain</span>
+              <span className="hidden xl:inline whitespace-nowrap">Gaya Desain</span>
+              <span className="text-amber-500 text-[10px] leading-none" title="Rekomendasi">★</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsThemeModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-200/90 transition flex items-center gap-1.5 shadow-2xs"
+              title="Ubah Palet Warna & Jenis Font Toko"
+            >
+              <Palette className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="hidden lg:inline xl:hidden whitespace-nowrap">Warna</span>
+              <span className="hidden xl:inline whitespace-nowrap">Warna & Font</span>
+            </button>
+          </div>
+
+          <div className="h-5 w-px bg-slate-200 hidden lg:block shrink-0" />
+
+          {/* GRUP KONTEN & BAGIAN WEBSITE */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsAddSectionOpen(true)}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition flex items-center gap-1.5"
+              title="Tambah Bagian Baru ke Kanvas Website"
+            >
+              <Plus className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="hidden lg:inline 2xl:hidden whitespace-nowrap">Bagian</span>
+              <span className="hidden 2xl:inline whitespace-nowrap">Tambah Bagian</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsManageMenuOpen(true)}
+              className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition flex items-center gap-1.5 shadow-2xs"
+              title="Kelola Daftar Menu & Produk Jualan"
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="hidden lg:inline 2xl:hidden whitespace-nowrap">Menu</span>
+              <span className="hidden 2xl:inline whitespace-nowrap">Kelola Menu</span>
+            </button>
+          </div>
+
+          <div className="h-5 w-px bg-slate-200 hidden lg:block shrink-0" />
+
+          {/* PREVIEW FULLSCREEN TOGGLE */}
+          <button
+            type="button"
+            onClick={() => setIsEditorMode(!isEditorMode)}
+            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shrink-0 ${
+              !isEditorMode
+                ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            title={isEditorMode ? 'Lihat Tampilan Penuh Toko (Mode Publik)' : 'Kembali ke Mode Edit'}
+          >
+            {!isEditorMode ? <EyeOff className="w-3.5 h-3.5 shrink-0" /> : <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" />}
+            <span className="hidden lg:inline whitespace-nowrap">{isEditorMode ? 'Preview' : 'Mode Edit'}</span>
           </button>
 
-          {/* API Key Modal Button */}
+        </div>
+
+        {/* PALING POJOK KANAN: API KEY, DEPLOY, & CHAT AI */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Tombol API Key */}
           <button
             type="button"
             onClick={() => setIsApiKeyModalOpen(true)}
-            className={`p-1.5 rounded-lg border transition ${
+            className={`p-2 rounded-xl border transition flex items-center gap-1 shrink-0 ${
               hasApiKey
-                ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
                 : 'text-slate-500 bg-white border-slate-200 hover:bg-slate-50'
             }`}
             title={hasApiKey ? 'Google AI Studio API Key Terhubung' : 'Pasang Google AI Studio API Key'}
           >
-            <KeyRound className="w-4 h-4" />
+            <KeyRound className="w-3.5 h-3.5" />
+            {hasApiKey && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 hidden sm:inline-block" />}
           </button>
-        </div>
 
-        {/* Kanan: Buka / Tutup Chat AI */}
-        <div>
+          {/* Tombol Deploy (Unduh ZIP Website) */}
+          <button
+            type="button"
+            onClick={handleDeployWebsite}
+            disabled={isExporting}
+            className="px-3 sm:px-3.5 py-1.5 rounded-xl text-xs font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition flex items-center gap-1.5 active:scale-95 disabled:opacity-50 shrink-0"
+            title="Deploy Website: Unduh file ZIP lengkap (index.html & style.css) siap pakai"
+          >
+            {isExporting ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="hidden sm:inline whitespace-nowrap">Menyiapkan...</span>
+              </>
+            ) : (
+              <>
+                <Rocket className="w-3.5 h-3.5 text-blue-200 shrink-0" />
+                <span className="hidden sm:inline whitespace-nowrap">Deploy</span>
+              </>
+            )}
+          </button>
+
+          {/* Tombol Buka / Tutup Chat AI */}
           <button
             type="button"
             onClick={() => setIsAiChatOpen(!isAiChatOpen)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shrink-0 ${
               isAiChatOpen
                 ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
+            title={isAiChatOpen ? 'Tutup Panel Asisten AI' : 'Buka Panel Asisten AI'}
           >
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">{isAiChatOpen ? 'Tutup AI' : 'Buka AI'}</span>
+            <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="hidden sm:inline whitespace-nowrap">{isAiChatOpen ? 'Tutup AI' : 'Chat AI'}</span>
           </button>
         </div>
 
@@ -572,7 +1194,7 @@ export default function StudioPage() {
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
-                  Item Produk
+                  Item Menu ({paletteItems.length})
                 </button>
                 <button
                   type="button"
@@ -688,11 +1310,16 @@ export default function StudioPage() {
             {sidebarTab === 'sections' && (
               <div className="flex-1 overflow-y-auto p-3 space-y-4">
                 
-                {/* Presets Cepat Tambah */}
+                {/* Presets Cepat Tambah (Bisa Diklik atau Di-Drag ke Kanvas) */}
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block px-1">
-                    + Preset Bagian Siap Pakai:
-                  </span>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                      + Preset Bagian:
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-semibold">
+                      Klik / Tarik ke kanvas
+                    </span>
+                  </div>
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
                       { type: 'HERO', label: '+ Hero Baru' },
@@ -705,89 +1332,143 @@ export default function StudioPage() {
                       <button
                         key={p.type}
                         type="button"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/nexaweb-preset', p.type);
+                          setDraggedPresetType(p.type as SectionType);
+                        }}
+                        onDragEnd={handleSectionDragEnd}
                         onClick={() => handleAddPresetSection(p.type as SectionType)}
-                        className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-700 text-xs font-bold transition text-left"
+                        className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-900 hover:text-white text-slate-700 text-xs font-bold transition text-left flex items-center justify-between cursor-grab active:cursor-grabbing group shadow-2xs"
+                        title="Klik untuk tambah, atau Tarik (Drag & Drop) langsung ke kanvas"
                       >
-                        {p.label}
+                        <span>{p.label}</span>
+                        <GripVertical className="w-3 h-3 opacity-40 group-hover:opacity-100" />
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Daftar Bagian Aktif di Kanvas */}
+                {/* Daftar Bagian Aktif di Kanvas (Bisa Di-Drag untuk Atur Urutan) */}
                 <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block px-1">
-                    Bagian Aktif di Kanvas ({sections.length}):
-                  </span>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                      Bagian Aktif ({sections.length}):
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-semibold flex items-center gap-1">
+                      <GripVertical className="w-3 h-3" /> Tarik untuk urutkan
+                    </span>
+                  </div>
 
                   <div className="space-y-2">
-                    {sections.map((sec, idx) => (
-                      <div
-                        key={sec.id}
-                        className={`p-3 rounded-2xl border transition-all ${
-                          highlightedSectionId === sec.id
-                            ? 'border-blue-600 bg-blue-50/70 shadow-md ring-2 ring-blue-400'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-xs font-black text-slate-900">
-                            {getSectionUniformLabel(sec)}
-                          </span>
-                          
-                          {/* Reorder Buttons */}
-                          <div className="flex items-center gap-0.5">
+                    {sections.map((sec, idx) => {
+                      const isDragging = draggedSectionIndex === idx;
+                      const isDragOver = dragOverSectionIndex === idx && draggedSectionIndex !== idx;
+
+                      return (
+                        <div
+                          key={sec.id}
+                          draggable
+                          onDragStart={(e) => handleSectionDragStart(e, idx)}
+                          onDragOver={(e) => handleSectionDragOver(e, idx)}
+                          onDragLeave={(e) => handleSectionDragLeave(e, idx)}
+                          onDrop={(e) => handleSectionDrop(e, idx)}
+                          onDragEnd={handleSectionDragEnd}
+                          className={`p-3 rounded-2xl border transition-all cursor-grab active:cursor-grabbing select-none relative ${
+                            isDragging
+                              ? 'opacity-40 border-2 border-dashed border-blue-500 scale-95 bg-blue-50/50'
+                              : isDragOver
+                              ? 'border-2 border-blue-600 bg-blue-50/90 shadow-md ring-2 ring-blue-400'
+                              : highlightedSectionId === sec.id
+                              ? 'border-blue-600 bg-blue-50/70 shadow-md ring-2 ring-blue-400'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-2xs'
+                          }`}
+                        >
+                          {isDragOver && (
+                            <div className="absolute inset-x-0 -top-1.5 h-1 bg-blue-600 rounded-full z-10 shadow" />
+                          )}
+
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <div className="p-1 rounded bg-slate-100 text-slate-400 group-hover:text-blue-600">
+                                <GripVertical className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-xs font-black text-slate-900">
+                                {getSectionUniformLabel(sec)}
+                              </span>
+                            </div>
+                            
+                            {/* Reorder Buttons */}
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMoveSection(idx, 'up');
+                                }}
+                                disabled={idx === 0}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                                title="Pindah ke Atas"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMoveSection(idx, 'down');
+                                }}
+                                disabled={idx === sections.length - 1}
+                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                                title="Pindah ke Bawah"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-slate-500 line-clamp-1 mb-2 pl-6">
+                            {sec.title || 'Tanpa Judul'}
+                          </p>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] pl-6">
                             <button
                               type="button"
-                              onClick={() => handleMoveSection(idx, 'up')}
-                              disabled={idx === 0}
-                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleHighlightSection(sec.id);
+                              }}
+                              className="font-bold text-blue-600 hover:underline"
                             >
-                              <ChevronUp className="w-3.5 h-3.5" />
+                              Sorot
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMoveSection(idx, 'down')}
-                              disabled={idx === sections.length - 1}
-                              className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
-                            >
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingSection(sec);
+                                }}
+                                className="text-slate-600 hover:text-slate-900 font-bold"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSection(sec.id);
+                                }}
+                                className="text-rose-600 hover:text-rose-800 font-bold"
+                              >
+                                Hapus
+                              </button>
+                            </div>
                           </div>
                         </div>
-
-                        <p className="text-[11px] text-slate-500 line-clamp-1 mb-2">
-                          {sec.title || 'Tanpa Judul'}
-                        </p>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]">
-                          <button
-                            type="button"
-                            onClick={() => handleHighlightSection(sec.id)}
-                            className="font-bold text-blue-600 hover:underline"
-                          >
-                            Sorot
-                          </button>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setEditingSection(sec)}
-                              className="text-slate-600 hover:text-slate-900 font-bold"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSection(sec.id)}
-                              className="text-rose-600 hover:text-rose-800 font-bold"
-                            >
-                              Hapus
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -837,6 +1518,37 @@ export default function StudioPage() {
               </div>
             </div>
 
+            {/* Banner Sukses Mode Template Wizard (PRD Step 3) */}
+            {wizardInfo && (
+              <div className="w-full bg-blue-50/90 border border-blue-200/90 rounded-2xl p-3 sm:p-4 mb-4 flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Sparkles className="w-4 h-4 text-blue-200" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-blue-900">
+                        Mode Template Aktif: {wizardInfo.businessType}
+                      </span>
+                      <span className="text-[10px] font-extrabold bg-blue-600 text-white px-2 py-0.2 rounded-full">
+                        Siap Pakai
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-blue-700 mt-0.5">
+                      Website toko Anda telah berhasil dirakit otomatis sesuai pilihan jenis usaha & fitur yang Anda centang.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWizardInfo(null)}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-900 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition shrink-0"
+                >
+                  Tutup
+                </button>
+              </div>
+            )}
+
             {/* KERTAS KANVAS (CANVAS PAPER) - SELURUH BAGIAN DARI NAV SAMPAI FOOTER TAMPIL UTUH */}
             <div
               id="canvasPaper"
@@ -849,15 +1561,29 @@ export default function StudioPage() {
             >
             {sections.map((section, sIdx) => {
               const isHighlight = highlightedSectionId === section.id;
+              const isDraggingThis = isEditorMode && draggedSectionIndex === sIdx;
+              const isDragOverThis = isEditorMode && dragOverSectionIndex === sIdx && draggedSectionIndex !== sIdx;
 
               return (
                 <div
                   key={section.id}
                   id={`section-${section.id}`}
+                  onDragOver={(e) => isEditorMode && handleSectionDragOver(e, sIdx)}
+                  onDragLeave={(e) => isEditorMode && handleSectionDragLeave(e, sIdx)}
+                  onDrop={(e) => isEditorMode && handleSectionDrop(e, sIdx)}
                   className={`relative group transition-all duration-200 ${
                     isHighlight ? 'ring-4 ring-blue-500 shadow-xl' : ''
+                  } ${
+                    isDragOverThis ? 'ring-4 ring-blue-500 bg-blue-50/20 shadow-md' : ''
+                  } ${
+                    isDraggingThis ? 'opacity-40 border-2 border-dashed border-blue-400 bg-blue-50/30' : ''
                   }`}
                 >
+                  {/* Indikator Garis Target Drop Saat Drag & Drop */}
+                  {isDragOverThis && (
+                    <div className="absolute inset-x-0 -top-1.5 h-2 bg-blue-600 rounded-full z-30 shadow-lg animate-pulse" />
+                  )}
+
                   {/* Indikator Garis Dot Border Saat Hover (Khusus Mode Editor) */}
                   {isEditorMode && (
                     <div
@@ -869,12 +1595,47 @@ export default function StudioPage() {
                     />
                   )}
 
-                  {/* Overlay Kontrol Bagian (Khusus Mode Editor) */}
+                  {/* Handle Drag & Drop di Pojok Kiri Atas Bagian (Khusus Mode Editor - Muncul Saat Hover) */}
                   {isEditorMode && (
-                    <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/90 text-white p-1.5 rounded-xl shadow-lg flex items-center gap-2 backdrop-blur-sm">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 text-blue-300">
+                    <div
+                      draggable
+                      onDragStart={(e) => handleSectionDragStart(e, sIdx)}
+                      onDragEnd={handleSectionDragEnd}
+                      className="absolute top-3 left-3 z-20 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900/90 hover:bg-blue-600 text-white px-2.5 py-1.5 rounded-xl shadow-lg flex items-center gap-1.5 backdrop-blur-sm select-none border border-white/10 pointer-events-none group-hover:pointer-events-auto"
+                      title="Tahan & Tarik (Drag & Drop) untuk memindahkan urutan bagian ini"
+                    >
+                      <GripVertical className="w-3.5 h-3.5 text-blue-300" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">
                         {getSectionUniformLabel(section)}
                       </span>
+                      <span className="text-[9px] text-blue-200 border-l border-white/20 pl-1.5 hidden sm:inline">
+                        Tarik Bagian
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Overlay Kontrol Bagian (Khusus Mode Editor - Muncul Saat Hover) */}
+                  {isEditorMode && (
+                    <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-slate-900/90 text-white p-1.5 rounded-xl shadow-lg flex items-center gap-1.5 backdrop-blur-sm pointer-events-none group-hover:pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSection(sIdx, 'up')}
+                        disabled={sIdx === 0}
+                        className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white disabled:opacity-20 transition"
+                        title="Pindah ke Atas"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSection(sIdx, 'down')}
+                        disabled={sIdx === sections.length - 1}
+                        className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white disabled:opacity-20 transition"
+                        title="Pindah ke Bawah"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="h-3 w-px bg-white/20 mx-0.5" />
                       <button
                         type="button"
                         onClick={() => setEditingSection(section)}
@@ -1467,6 +2228,23 @@ export default function StudioPage() {
               );
             })}
             </div>
+
+            {/* Drop Zone Paling Bawah Kanvas */}
+            {isEditorMode && (
+              <div
+                onDragOver={(e) => handleSectionDragOver(e, sections.length)}
+                onDragLeave={(e) => handleSectionDragLeave(e, sections.length)}
+                onDrop={(e) => handleSectionDrop(e, sections.length)}
+                className={`w-full py-3.5 border-2 border-dashed rounded-2xl transition flex items-center justify-center gap-2 text-xs font-bold my-3 ${
+                  dragOverSectionIndex === sections.length
+                    ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-md ring-2 ring-blue-300'
+                    : 'border-slate-300/80 text-slate-400 hover:border-slate-400 hover:bg-slate-50/50'
+                }`}
+              >
+                <GripVertical className="w-4 h-4 text-slate-400" />
+                <span>Lepas di sini untuk menempatkan bagian di paling bawah kanvas</span>
+              </div>
+            )}
           </div>
 
         </main>
@@ -1557,6 +2335,14 @@ export default function StudioPage() {
           setIsApiKeyModalOpen(false);
         }}
         canvasSections={sections}
+      />
+
+      {/* Modal Sukses Deploy & Petunjuk Onlinekan Website */}
+      <DeploySuccessModal
+        isOpen={isDeployModalOpen}
+        onClose={() => setIsDeployModalOpen(false)}
+        fileName={lastExportedFileName}
+        onReDownload={handleDeployWebsite}
       />
 
     </div>

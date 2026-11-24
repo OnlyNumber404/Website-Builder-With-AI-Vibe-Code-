@@ -43,20 +43,22 @@ export default function DemoSimulator() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header Bagian */}
-        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
+        <div className="text-center max-w-3xl mx-auto mb-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-400 text-xs font-bold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Simulator AI Interaktif (AC-H.3)</span>
+            <span>Simulator AI Copilot Interaktif</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Lihat Keajaiban AI Merakit Toko Anda
+            Lihat Bagaimana AI Merakit Website Toko Anda dalam Sekejap
           </h2>
           <p className="mt-3 text-sm sm:text-base text-slate-300">
-            Cukup klik salah satu contoh ide bisnis di bawah ini, atau perhatikan bagaimana AI langsung mengubah teks biasa menjadi tampilan toko siap jualan.
+            Pilih salah satu contoh bidang usaha di bawah ini dan saksikan bagaimana instruksi sederhana langsung berubah menjadi halaman toko lengkap siap jualan.
           </p>
+        </div>
 
-          {/* Chips Pilihan Prompt */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+        {/* Chips Pilihan Prompt (Menyamping / Satu Baris Horizontal) */}
+        <div className="w-full max-w-5xl mx-auto mb-10 sm:mb-12">
+          <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-2.5 sm:gap-3 overflow-x-auto pb-2 px-2 no-scrollbar">
             {SIMULATOR_PROMPTS.map((item, idx) => {
               const active = idx === selectedIdx;
               return (
@@ -64,14 +66,14 @@ export default function DemoSimulator() {
                   key={item.id}
                   type="button"
                   onClick={() => setSelectedIdx(idx)}
-                  className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 ${
+                  className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     active
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105'
                       : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700'
                   }`}
                 >
-                  <span>{item.label}</span>
-                  {active && <Check className="w-3.5 h-3.5" />}
+                  <span className="whitespace-nowrap">{item.label}</span>
+                  {active && <Check className="w-3.5 h-3.5 shrink-0" />}
                 </button>
               );
             })}

@@ -12,14 +12,14 @@ export default function Testimonials() {
         
         {/* Header Section */}
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-            Kisah Sukses UMKM Usia 40–50 Tahun (AC-H.6)
+          <span className="text-xs font-bold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200">
+            Cerita Sukses Pelaku UMKM
           </span>
           <h2 className="mt-3 text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            &quot;Kalau Saya yang Gaptek Saja Bisa, Anda Pasti Lebih Bisa!&quot;
+            Website Profesional Kini Bisa Dimiliki Setiap Pelaku Usaha
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            Cerita tulus dari para pemilik usaha yang membuktikan bahwa membuat website toko tidak lagi rumit ataupun mahal.
+            Pengalaman nyata para pemilik bisnis lokal yang berhasil mempercepat pembuatan website toko mereka bersama NexaWeb.
           </p>
         </div>
 

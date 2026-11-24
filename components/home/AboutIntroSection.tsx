@@ -32,21 +32,21 @@ export default function AboutIntroSection() {
               </span>
 
               <h3 className="text-2xl sm:text-3xl font-black text-white leading-tight">
-                Teknologi yang Ramah, Bukan yang Menakutkan
+                Website Profesional untuk Setiap Skala Usaha
               </h3>
 
               <p className="mt-4 text-xs sm:text-sm text-slate-300 leading-relaxed">
-                Kami membangun NexaWeb untuk para pejuang UMKM yang selama ini merasa minder dengan istilah komputer. Setiap fitur dirancang agar orang tua kita pun bisa memakainya sendiri tanpa rasa bingung.
+                Kami membangun NexaWeb agar seluruh pelaku UMKM di Indonesia—dari bisnis rumahan yang baru merintis hingga brand lokal yang sedang berkembang—bisa memiliki website resmi berkelas tanpa pusing memikirkan kode.
               </p>
             </div>
 
             <div className="pt-6 border-t border-slate-800 flex items-center gap-3 text-xs text-blue-300 font-semibold">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Didukung Komunitas 3.800+ Pelaku Usaha Lokal</span>
+              <span>Dipercaya 3.800+ Pelaku UMKM di Seluruh Indonesia</span>
             </div>
           </motion.div>
 
-          {/* Kolom Kanan: Narasi & 3 Nilai Utama */}
+          {/* Kolom Kanan: Narasi & 2 Nilai Utama */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -60,10 +60,10 @@ export default function AboutIntroSection() {
                 <span>Tentang NexaWeb.ai</span>
               </div>
               <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight leading-snug">
-                Lahir dari Kerinduan Melihat UMKM Berani Tampil Mandiri
+                Bantu UMKM Indonesia Naik Kelas &amp; Tampil Kredibel Secara Digital
               </h2>
               <p className="mt-4 text-sm sm:text-base text-slate-600 leading-relaxed">
-                Banyak pemilik usaha usia 40–50 tahun menganggap memiliki website resmi itu harus bayar jutaan rupiah dan pusing mengurus server. NexaWeb hadir memangkas semua itu: cukup gunakan bahasa Indonesia sehari-hari, AI yang menyusunkan toko Anda secara instan.
+                Memiliki website resmi yang rapi dan meyakinkan tidak lagi harus mengeluarkan biaya jasa agensi jutaan rupiah atau menunggu berminggu-minggu. Di NexaWeb, Anda bisa mulai dari <strong className="text-slate-800">Mode Template Instan</strong> atau mendesain bebas di <strong className="text-slate-800">Advance Designer Mode</strong> dengan bantuan AI Copilot berbahasa Indonesia.
               </p>
             </div>
 
@@ -71,20 +71,20 @@ export default function AboutIntroSection() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
                   <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                  <span className="whitespace-nowrap">Bahasa Sehari&#8209;hari</span>
+                  <span>2 Mode Editor Fleksibel</span>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Tidak ada koding atau istilah rumit. Ketik seperti mengirim pesan biasa.
+                  Mau cepat pakai template siap jualan, atau kustom bebas seperti Canva dengan Smart Snap—semuanya tersedia.
                 </p>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-xs text-slate-900">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Pesanan Masuk WhatsApp</span>
+                  <span>Order WhatsApp &amp; Export ZIP</span>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Semua transaksi langsung masuk ke nomor WhatsApp toko Anda tanpa potongan.
+                  Semua pesanan masuk langsung ke WhatsApp bisnis Anda tanpa potongan komisi, plus bisa ekspor paket website siap tayang.
                 </p>
               </div>
             </div>

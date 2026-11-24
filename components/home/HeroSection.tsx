@@ -22,31 +22,31 @@ export default function HeroSection() {
           className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs sm:text-sm font-bold shadow-sm mb-6"
         >
           <Sparkles className="w-4 h-4 text-blue-600 animate-pulse" />
-          <span>Platform Pembuat Website Berbasis AI #1 Khusus Pemilik Usaha Indonesia</span>
+          <span>Website Builder AI Modern untuk Seluruh Pelaku UMKM Indonesia</span>
         </motion.div>
 
-        {/* Judul Utama Ramah 40-50 Tahun (AC-H.2) */}
+        {/* Judul Utama */}
         <motion.h1
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
           className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-tight max-w-5xl mx-auto text-balance"
         >
-          Bikin Website Toko Sendiri <br className="hidden sm:inline" />
+          Bikin Website Toko Profesional <br className="hidden sm:inline" />
           Cukup Pakai{' '}
           <span className="inline-block whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
             Bahasa Sehari&#8209;hari
           </span>
         </motion.h1>
 
-        {/* Sub-Headline Ramah Pemula & Non-Tech */}
+        {/* Sub-Headline */}
         <motion.p
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal"
         >
-          Khusus untuk pemilik UMKM yang tidak paham koding dan lelah bayar mahal ke jasa developer. Cukup ketik nama usaha & produk Anda, website toko langsung siap terima pesanan via WhatsApp.
+          Bangun toko online, katalog produk, dan profil bisnis yang kredibel tanpa coding. Pilih <strong className="text-slate-800">Mode Template Instan</strong> atau berkreasi bebas di <strong className="text-slate-800">Advance Designer Mode</strong> bergaya Canva—lengkap dengan AI Copilot dan tombol order WhatsApp.
         </motion.p>
 
         {/* Tombol Aksi Utama (CTA) */}
@@ -60,7 +60,7 @@ export default function HeroSection() {
             href="/studio"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base sm:text-lg shadow-xl shadow-blue-500/25 transition-all duration-200 transform hover:-translate-y-1 active:translate-y-0"
           >
-            <span>Mulai Buat Website Now</span>
+            <span>Mulai Buat Website Gratis</span>
             <ArrowRight className="w-5 h-5" />
           </Link>
 
@@ -69,7 +69,7 @@ export default function HeroSection() {
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-2xl bg-white hover:bg-slate-50 text-slate-800 font-bold text-base border border-slate-300 shadow-sm transition-all duration-200"
           >
             <Play className="w-4 h-4 text-blue-600 fill-blue-600" />
-            <span>Lihat Contoh Simulator</span>
+            <span>Coba Simulator AI</span>
           </a>
         </motion.div>
 
@@ -82,15 +82,15 @@ export default function HeroSection() {
         >
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>100% Bebas Koding</span>
+            <span>Template Instan &amp; Kanvas Bebas</span>
           </div>
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-500" />
-            <span>Selesai dalam 5 Menit</span>
+            <span>Asisten AI Copilot 24/7</span>
           </div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-blue-600" />
-            <span>Langsung Konek WhatsApp Toko</span>
+            <span>Order WhatsApp &amp; Export ZIP</span>
           </div>
         </motion.div>
 

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="nexaBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="52%" stop-color="#1E3A8A" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="nexaBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.38" />
+      <stop offset="50%" stop-color="#93C5FD" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#93C5FD" stop-opacity="0.55" />
+    </linearGradient>
+    <linearGradient id="foldShadowLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#64748B" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="foldShadowRight" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#64748B" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="sparkleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0F2FE" />
+      <stop offset="55%" stop-color="#93C5FD" />
+      <stop offset="100%" stop-color="#60A5FA" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Brand Container -->
+  <rect x="2" y="2" width="96" height="96" rx="24" fill="url(#nexaBg)" />
+  <rect x="5" y="5" width="90" height="90" rx="21" stroke="url(#nexaBorder)" stroke-width="1.4" />
+
+  <!-- Geometric Folded Ribbon "N" -->
+  <!-- Left Pillar -->
+  <path d="M 24 27 H 38 V 73 H 24 Z" fill="#FFFFFF" />
+  <!-- Right Pillar -->
+  <path d="M 59 27 H 73 V 73 H 59 Z" fill="#FFFFFF" />
+  <!-- Fold Shadows under Diagonal Plane -->
+  <path d="M 24 27 L 38 46.5 L 38 27 Z" fill="url(#foldShadowLeft)" />
+  <path d="M 73 73 L 59 53.5 L 59 73 Z" fill="url(#foldShadowRight)" />
+  <!-- Diagonal Connecting Ribbon -->
+  <path d="M 24 27 H 38 L 73 73 H 59 Z" fill="#FFFFFF" />
+  <!-- Subtle crisp edge highlight on diagonal fold -->
+  <path d="M 24 27 L 59 73" stroke="#CBD5E1" stroke-width="0.9" stroke-opacity="0.65" />
+  <path d="M 38 27 L 73 73" stroke="#E2E8F0" stroke-width="0.7" stroke-opacity="0.5" />
+
+  <!-- 4-Point AI Sparkle Star -->
+  <path
+    d="M 78 10 Q 78.8 21.2 90 22 Q 78.8 22.8 78 34 Q 77.2 22.8 66 22 Q 77.2 21.2 78 10 Z"
+    fill="url(#sparkleGrad)"
+  />
+</svg>
