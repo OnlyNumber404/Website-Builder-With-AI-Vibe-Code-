@@ -2,49 +2,52 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquareText, Sliders, Smartphone, Check, ArrowRight } from 'lucide-react';
+import { MessageSquareText, Layers, Smartphone, Check, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ValuePropGrid() {
   const cards = [
     {
       icon: MessageSquareText,
-      badge: 'Bebas Koding 100%',
+      badge: 'AI Copilot (Gemini Flash)',
       title: 'Instan Tanpa Coding',
-      headline: 'Tinggal Ketik Seperti Chat WhatsApp',
-      description: 'Lupakan istilah rumit seperti domain, hosting, DNS, atau HTML. Anda cukup mengobrol santai dalam Bahasa Indonesia dengan asisten AI kami untuk merakit dan mengubah website.',
+      headline: 'Edit Website Semudah Chatting Sehari-hari',
+      description: 'Cukup ketik instruksi dalam Bahasa Indonesia—seperti tambah menu baru, ganti warna tema, atau targetkan bagian tertentu dengan @Hero dan @Katalog. AI langsung mengeksekusinya di kanvas.',
       features: [
-        'Tidak perlu belajar bahasa pemrograman',
-        'Bisa lewat HP maupun komputer meja',
-        'AI memahami logat & bahasa sehari-hari'
+        'Asisten AI Copilot siap bantu 24/7',
+        'Fitur @mention untuk edit bagian spesifik',
+        'Rakit teks, produk & tampilan dalam hitungan detik'
       ],
-      color: 'blue'
+      href: '/studio',
+      cta: 'Coba AI Copilot di Studio'
     },
     {
-      icon: Sliders,
-      badge: 'Bebas Ketergantungan',
-      title: 'Kontrol Mandiri 100%',
-      headline: 'Bebas dari Biaya Jasa Developer Mahal',
-      description: 'Mau ganti harga menu soto? Tambah produk baru? Atau ubah jam operasional saat libur lebaran? Semua bisa Anda edit sendiri dalam hitungan detik tanpa perlu bayar orang lain lagi.',
+      icon: Layers,
+      badge: '2 Mode Editor Studio',
+      title: 'Template & Kanvas Bebas',
+      headline: 'Mau Cepat atau Kustom Bebas Ala Canva, Bisa!',
+      description: 'Gunakan Mode Template untuk langsung siap jualan, atau buka Advance Designer Mode untuk merancang tata letak bebas multi-kanvas lengkap dengan garis bantu Smart Snap dan toolbar tipografi modern.',
       features: [
-        'Hemat jutaan rupiah biaya jasa agensi',
-        'Ubah harga & foto menu kapan saja seketika',
-        'Kanvas drag & drop super gampang'
+        'Drag & drop bebas + Smart Alignment & Resize Snap',
+        'Edit judul, harga & deskripsi produk langsung di kartu',
+        'Riwayat Undo/Redo penuh & multi-halaman navigasi'
       ],
-      color: 'emerald'
+      href: '/studio/advance',
+      cta: 'Coba Advance Designer Mode'
     },
     {
       icon: Smartphone,
-      badge: 'Langsung Jualan',
-      title: 'Siap Terima Order',
-      headline: 'Terintegrasi Tombol Pesanan WhatsApp',
-      description: 'Website toko Anda langsung dilengkapi tombol pesanan WhatsApp pintar. Begitu pembeli mengklik menu yang diinginkan, pesan pesanan rapi otomatis terisi di chat WhatsApp Anda.',
+      badge: 'Siap Jualan & Export',
+      title: 'WhatsApp & Deploy ZIP',
+      headline: 'Terima Pesanan Langsung Tanpa Potongan Komisi',
+      description: 'Setiap produk dan tombol aksi bisa langsung terhubung ke WhatsApp bisnis Anda. Lihat pratinjau interaktif secara live lalu unduh paket website lengkap (ZIP) yang siap langsung tayang.',
       features: [
-        'Uang masuk 100% langsung ke rekening Anda',
-        'Tanpa potongan komisi aplikasi yang mencekik',
-        'Format pesan WhatsApp bisa dikustomisasi'
+        '100% omzet masuk ke rekening bisnis Anda (0% komisi)',
+        'Pratinjau live interaktif untuk cek tombol & navigasi',
+        'Export paket file website statis (index.html & CSS)'
       ],
-      color: 'amber'
+      href: '/studio',
+      cta: 'Mulai Bangun Website Anda'
     }
   ];
 
@@ -54,14 +57,14 @@ export default function ValuePropGrid() {
         
         {/* Header Section */}
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <span className="text-xs font-extrabold uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-            Nilai Keunggulan NexaWeb (AC-H.4)
+          <span className="text-xs font-extrabold uppercase tracking-widest text-blue-600 bg-blue-50 px-3.5 py-1.5 rounded-full border border-blue-200">
+            Fitur Unggulan NexaWeb
           </span>
           <h2 className="mt-3 text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Dirancang Nyaman untuk Pemilik Usaha, Bukan untuk Ahli Komputer
+            Semua Alat yang UMKM Butuhkan untuk Tampil Profesional Online
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            Tiga pilar kemudahan yang membebaskan pemilik usaha dari rasa takut pada teknologi.
+            Dari AI Copilot yang mengerti bahasa sehari-hari, dua mode desain fleksibel, hingga ekspor website siap jualan—semuanya dalam satu studio modern.
           </p>
         </div>
 
@@ -110,10 +113,10 @@ export default function ValuePropGrid() {
 
                 <div className="mt-8 pt-4">
                   <Link
-                    href="/studio"
+                    href={card.href}
                     className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 group-hover:text-blue-700 transition"
                   >
-                    <span>Coba fiturnya sekarang</span>
+                    <span>{card.cta}</span>
                     <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                   </Link>
                 </div>

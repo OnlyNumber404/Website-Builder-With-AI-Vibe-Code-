@@ -46,13 +46,13 @@ export default function DemoSimulator() {
         <div className="text-center max-w-3xl mx-auto mb-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-400 text-xs font-bold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Simulator AI Interaktif (AC-H.3)</span>
+            <span>Simulator AI Copilot Interaktif</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-            Lihat Keajaiban AI Merakit Toko Anda
+            Lihat Bagaimana AI Merakit Website Toko Anda dalam Sekejap
           </h2>
           <p className="mt-3 text-sm sm:text-base text-slate-300">
-            Cukup klik salah satu contoh ide bisnis di bawah ini, atau perhatikan bagaimana AI langsung mengubah teks biasa menjadi tampilan toko siap jualan.
+            Pilih salah satu contoh bidang usaha di bawah ini dan saksikan bagaimana instruksi sederhana langsung berubah menjadi halaman toko lengkap siap jualan.
           </p>
         </div>
 

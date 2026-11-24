@@ -2,9 +2,14 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'NexaWeb.ai - Bikin Website Toko Sendiri Cukup Pakai Bahasa Sehari-hari',
-  description: 'Platform AI pembuat website toko modern untuk pemilik UMKM Indonesia usia 40-50 tahun. 100% tanpa koding, instan, terhubung ke WhatsApp.',
-  keywords: ['website builder umkm', 'bikin website toko', 'ai website builder indonesia', 'nexaweb'],
+  title: 'NexaWeb.ai - Website Builder AI Modern untuk UMKM Indonesia',
+  description: 'Platform AI pembuat website toko & katalog bisnis modern untuk seluruh pelaku UMKM Indonesia. Tanpa coding, dilengkapi Mode Template, Advance Designer Mode ala Canva, AI Copilot, dan integrasi WhatsApp.',
+  keywords: ['website builder umkm', 'bikin website toko', 'ai website builder indonesia', 'nexaweb', 'canva website builder'],
+  icons: {
+    icon: '/logo-icon.svg',
+    shortcut: '/logo-icon.svg',
+    apple: '/images/nexaweb-app-icon.jpg',
+  },
 };
 
 export default function RootLayout({

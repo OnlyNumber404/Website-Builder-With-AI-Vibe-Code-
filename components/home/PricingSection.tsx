@@ -7,50 +7,50 @@ import { Check, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
 export default function PricingSection() {
   const plans = [
     {
-      name: 'Demo Gratis Selamanya',
-      tagline: 'Cocok untuk coba-coba merakit toko sendiri',
+      name: 'Starter Gratis',
+      tagline: 'Coba seluruh kekuatan studio builder tanpa biaya',
       price: 'Rp 0',
-      period: 'Gratis tanpa kartu kredit',
+      period: 'Gratis selamanya tanpa kartu kredit',
       highlight: false,
-      ctaText: 'Coba Studio Sekarang',
+      ctaText: 'Coba Studio Gratis',
       features: [
-        'Akses penuh ke Studio Builder kanvas',
-        'Coba generate ide toko pakai AI',
-        'Tarik-lepas menu & produk tanpa batas',
-        'Ekspor kode HTML & preview di HP',
-        'Bantuan via Komunitas WhatsApp'
+        'Akses Mode Template Instan & Advance Designer Mode',
+        'Asisten AI Copilot (Gemini Flash) berbahasa Indonesia',
+        'Smart Alignment Guides, Auto-Snap & Edit Inline',
+        'Pratinjau live interaktif & Export ZIP (HTML + CSS)',
+        'Akses grup Komunitas UMKM NexaWeb'
       ]
     },
     {
-      name: 'UMKM Mandiri',
-      tagline: 'Pilihan paling populer pemilik usaha',
+      name: 'UMKM Pro',
+      tagline: 'Pilihan terbaik untuk bisnis yang siap tumbuh online',
       price: 'Rp 49.000',
-      period: 'per bulan (atau Rp 390rb/tahun)',
+      period: 'per bulan (hemat Rp 390rb/tahun)',
       highlight: true,
-      badge: 'Paling Diminati UMKM',
+      badge: 'Paling Populer',
       ctaText: 'Mulai Sekarang',
       features: [
-        'Semua fitur di paket Gratis',
-        'Nama domain toko sendiri (.com / .id)',
-        'Tombol pesanan langsung ke WhatsApp toko',
-        'Tanpa potongan komisi penjualan (0%)',
-        'Bebas ubah harga menu kapan saja',
-        'Bantuan prioritas via WhatsApp Helpdesk'
+        'Semua fitur lengkap di paket Starter Gratis',
+        'Nama domain bisnis profesional (.com / .id) + SSL',
+        'Multi-kanvas & menu navigasi halaman tanpa batas',
+        'Integrasi tombol order WhatsApp bisnis (0% komisi)',
+        'Bebas update katalog, foto & harga kapan saja',
+        'Dukungan prioritas via WhatsApp Helpdesk'
       ]
     },
     {
-      name: 'Pendampingan Khusus',
-      tagline: 'Untuk yang mau terima beres siap jualan',
+      name: 'Bisnis Terima Beres',
+      tagline: 'Dibantu tim desain NexaWeb sampai website siap jualan',
       price: 'Rp 299.000',
-      period: 'Sekali bayar (One-time)',
+      period: 'Sekali bayar untuk 1 tahun penuh',
       highlight: false,
-      ctaText: 'Hubungi Tim Pendamping',
+      ctaText: 'Konsultasi Tim NexaWeb',
       features: [
-        'Semua fasilitas Paket Mandiri 1 Tahun',
-        'Dibantu inputkan seluruh foto & menu oleh tim kami',
-        'Panduan video 1-on-1 via WhatsApp call',
-        'Banner promo opening toko didesainkan',
-        'Garansi sampai pesanan pertama masuk'
+        'Semua fasilitas paket UMKM Pro selama 1 Tahun',
+        'Bantuan input foto, deskripsi & katalog produk awal',
+        'Sesi panduan privat 1-on-1 bersama tim kami',
+        'Desain banner promo & identitas visual halaman utama',
+        'Pendampingan penuh sampai website online & siap order'
       ]
     }
   ];
@@ -61,14 +61,14 @@ export default function PricingSection() {
         
         {/* Header Section */}
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <span className="text-xs font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-            Transparan & Terjangkau
+          <span className="text-xs font-bold uppercase tracking-widest text-blue-600 bg-blue-50 px-3.5 py-1.5 rounded-full border border-blue-200">
+            Harga Transparan &amp; Fleksibel
           </span>
           <h2 className="mt-3 text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Biaya Ramah Kantong, Tanpa Potongan Penjualan
+            Investasi Ringan untuk Website Profesional, 0% Potongan Penjualan
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            Bandingkan dengan biaya jasa agensi jutaan rupiah. Di NexaWeb, setiap rupiah keuntungan penjualan 100% milik Anda.
+            Mulai dari gratis hingga paket terima beres—jauh lebih hemat dibanding jasa agensi jutaan rupiah, dan 100% hasil penjualan tetap milik Anda.
           </p>
         </div>
 

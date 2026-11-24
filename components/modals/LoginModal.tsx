@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, LogIn, Sparkles, UserPlus, ArrowRight, ShieldCheck, Check } from 'lucide-react';
 import Link from 'next/link';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -58,9 +59,7 @@ export default function LoginModal({ isOpen, onClose, onOpenStudioWizard }: Logi
           {/* Header */}
           <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-white">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-sm">
-                <LogIn className="w-4 h-4 text-blue-400" />
-              </div>
+              <NexaWebMark size={38} className="rounded-xl shadow-sm" />
               <div>
                 <h3 className="text-base font-extrabold text-slate-900">
                   {tab === 'login' ? 'Masuk ke Akun Toko' : 'Daftar Akun NexaWeb'}

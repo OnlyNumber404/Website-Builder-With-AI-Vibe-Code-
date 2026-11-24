@@ -20,6 +20,7 @@ import {
   Layers,
   LayoutTemplate
 } from 'lucide-react';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
 interface StudioSelectionModalProps {
   isOpen: boolean;
@@ -127,9 +128,7 @@ export default function StudioSelectionModal({ isOpen, onClose }: StudioSelectio
                   <ArrowLeft className="w-5 h-5" />
                 </button>
               ) : (
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                  <Sparkles className="w-5 h-5 text-blue-100" />
-                </div>
+                <NexaWebMark size={40} className="rounded-xl shadow-md shadow-blue-500/20" />
               )}
 
               <div>

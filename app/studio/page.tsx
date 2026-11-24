@@ -55,6 +55,7 @@ import AiCopilotSidebar from '@/components/studio/AiCopilotSidebar';
 import SectionModals from '@/components/studio/SectionModals';
 import { downloadWebsiteZip } from '@/lib/exportWebsite';
 import { DeploySuccessModal } from '@/components/modals/DeploySuccessModal';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
 interface CanvasSnapshot {
   sections: SectionItem[];
@@ -963,9 +964,7 @@ export default function StudioPage() {
           </Link>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm shrink-0">
-              <Sparkles className="w-4 h-4 text-blue-400" />
-            </div>
+            <NexaWebMark size={34} className="rounded-lg shadow-sm" />
             <div className="flex flex-col">
               <span className="font-extrabold text-sm tracking-tight text-slate-900 leading-none hidden sm:inline whitespace-nowrap">
                 NexaWeb<span className="text-blue-600">.ai</span>

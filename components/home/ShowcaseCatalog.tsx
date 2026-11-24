@@ -68,13 +68,13 @@ export default function ShowcaseCatalog() {
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Showcase Galeri Toko UMKM (AC-H.5)</span>
+            <span>Galeri Inspirasi UMKM</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
-            Contoh Website Toko Nyata yang Siap Pakai
+            Inspirasi Website Toko untuk Berbagai Bidang Usaha
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            Dibuat khusus untuk beragam bidang usaha di Indonesia. Anda bisa langsung mengambil inspirasi dan mengeditnya di studio.
+            Mulai dari kuliner, fashion, jasa lokal, hingga kerajinan tangan—semua contoh desain di bawah ini dapat langsung Anda bangun dan kustomisasi sendiri di NexaWeb Studio.
           </p>
 
           {/* Tab Filter Kategori dengan Animated Sliding Pill */}

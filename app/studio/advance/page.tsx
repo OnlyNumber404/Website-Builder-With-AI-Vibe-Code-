@@ -35,6 +35,7 @@ import AdvanceAiCopilot from '@/components/advance/AdvanceAiCopilot';
 import AdvanceNavigationConfigModal from '@/components/advance/AdvanceNavigationConfigModal';
 import AdvancePreviewModal from '@/components/advance/AdvancePreviewModal';
 import { exportAdvanceWebsiteZip } from '@/lib/advanceExport';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
 export default function AdvanceStudioPage() {
   const router = useRouter();
@@ -551,10 +552,8 @@ export default function AdvanceStudioPage() {
 
           <div className="h-5 w-px bg-slate-200" />
 
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Layers className="w-4 h-4" />
-            </div>
+          <div className="flex items-center gap-2.5">
+            <NexaWebMark size={34} className="rounded-lg shadow-md shadow-blue-500/20" />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-sm text-slate-900 tracking-tight">

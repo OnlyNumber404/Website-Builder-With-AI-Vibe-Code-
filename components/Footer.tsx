@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, MessageCircle, MapPin, Mail, ShieldCheck, Heart } from 'lucide-react';
+import { MessageCircle, MapPin, Mail, ShieldCheck, Heart } from 'lucide-react';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
 export default function Footer() {
   return (
@@ -11,15 +12,13 @@ export default function Footer() {
           {/* Kolom 1: Profil Brand */}
           <div className="md:col-span-5 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 to-blue-500 flex items-center justify-center text-white shadow-md">
-                <Sparkles className="w-5 h-5 text-blue-200" />
-              </div>
+              <NexaWebMark size={42} className="rounded-xl shadow-md shadow-blue-500/20" />
               <span className="font-extrabold text-2xl tracking-tight text-white">
                 NexaWeb<span className="text-blue-400">.ai</span>
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
-              Platform pembuat website toko modern berbasis AI untuk pemilik UMKM Indonesia usia 40–50 tahun. Bikin website mandiri semudah mengetik chat WhatsApp tanpa coding.
+              Platform pembuat website modern berbasis AI untuk seluruh pelaku UMKM Indonesia. Bangun website toko profesional secara mandiri—lewat Mode Template Instan atau Advance Designer Mode bergaya Canva—tanpa coding.
             </p>
             <div className="pt-2">
               <a
@@ -50,17 +49,22 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/studio" className="hover:text-blue-400 transition-colors text-blue-400 font-semibold">
-                  Studio Kanvas Website (Gratis)
+                  Mode Template Studio (Instan)
+                </Link>
+              </li>
+              <li>
+                <Link href="/studio/advance" className="hover:text-blue-400 transition-colors text-blue-300 font-semibold">
+                  Advance Designer Mode (Ala Canva)
                 </Link>
               </li>
               <li>
                 <Link href="/#fitur" className="hover:text-blue-400 transition-colors">
-                  Fitur Unggulan Tanpa Coding
+                  Fitur Unggulan
                 </Link>
               </li>
               <li>
                 <Link href="/#showcase" className="hover:text-blue-400 transition-colors">
-                  Galeri Contoh Toko UMKM
+                  Galeri Inspirasi UMKM
                 </Link>
               </li>
             </ul>

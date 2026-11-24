@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { Sparkles, ArrowRight, Menu, X, Laptop, LogIn, Store } from 'lucide-react';
 import StudioSelectionModal from './modals/StudioSelectionModal';
 import LoginModal from './modals/LoginModal';
+import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -112,11 +113,12 @@ export default function Navbar() {
           
           {/* Logo Brand */}
           <Link href="/" className="flex items-center gap-3 group shrink-0">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-slate-900 via-blue-900 to-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
-              <Sparkles className="w-6 h-6 text-blue-300" />
-            </div>
+            <NexaWebMark
+              size={44}
+              className="rounded-xl shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform duration-200"
+            />
             <div className="flex flex-col shrink-0">
-              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-slate-900 flex items-center gap-1">
+              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-slate-900 flex items-center">
                 NexaWeb<span className="text-blue-600">.ai</span>
               </span>
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">

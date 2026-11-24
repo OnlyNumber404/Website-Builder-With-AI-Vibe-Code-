@@ -277,15 +277,15 @@ export const SIMULATOR_PROMPTS = [
   }
 ];
 
-// Showcase UMKM untuk Galeri (AC-H.5)
+// Showcase UMKM untuk Galeri
 export const SHOWCASE_ITEMS = [
   {
     id: 'sc-1',
     category: 'Kuliner',
     title: 'Soto Betawi H. Joko',
-    owner: 'Pak Joko Susilo (52 thn)',
+    owner: 'Joko Susilo',
     location: 'Pasar Senen, Jakarta Pusat',
-    description: 'Situs kuliner tradisional dengan daftar menu lengkap dan tombol pesan antar instan ke WhatsApp kasir.',
+    description: 'Website kuliner dengan katalog menu lengkap, harga transparan, dan tombol pesan antar instan ke WhatsApp kasir.',
     image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=700&auto=format&fit=crop&q=80',
     color: '#059669',
     badge: 'Kuliner'
@@ -294,9 +294,9 @@ export const SHOWCASE_ITEMS = [
     id: 'sc-2',
     category: 'Fashion',
     title: 'Galeri Batik Sekar Ayu',
-    owner: 'Ibu Maya Dewi (43 thn)',
+    owner: 'Maya Dewi',
     location: 'Laweyan, Solo',
-    description: 'Katalog online busana batik modern yang membuat pelanggan luar pulau mudah memilih motif dan ukuran.',
+    description: 'Katalog online busana batik modern dengan tata letak visual rapi yang memudahkan pelanggan memilih motif dan ukuran.',
     image: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=700&auto=format&fit=crop&q=80',
     color: '#78350f',
     badge: 'Fashion'
@@ -305,9 +305,9 @@ export const SHOWCASE_ITEMS = [
     id: 'sc-3',
     category: 'Kuliner',
     title: 'Dapoer Berkah Katering',
-    owner: 'Ibu Sri Wahyuni (47 thn)',
+    owner: 'Sri Wahyuni',
     location: 'Pasar Minggu, Jakarta Selatan',
-    description: 'Layanan katering nasi kotak harian dan paket prasmanan syukuran untuk perumahan dan perkantoran.',
+    description: 'Layanan katering nasi kotak harian dan paket prasmanan acara dengan daftar paket yang mudah diperbarui kapan saja.',
     image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=700&auto=format&fit=crop&q=80',
     color: '#d97706',
     badge: 'Katering'
@@ -316,9 +316,9 @@ export const SHOWCASE_ITEMS = [
     id: 'sc-4',
     category: 'Jasa Lokal',
     title: 'Berkah Teknik AC & Kelistrikan',
-    owner: 'Pak Ridwan Santoso (49 thn)',
+    owner: 'Ridwan Santoso',
     location: 'Depok, Jawa Barat',
-    description: 'Jasa panggilan cepat perbaikan rumah tangga bergaransi dengan testimoni asli warga sekitar.',
+    description: 'Website profil jasa panggilan bergaransi dengan daftar tarif layanan transparan dan tombol booking WhatsApp cepat.',
     image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=700&auto=format&fit=crop&q=80',
     color: '#2563eb',
     badge: 'Jasa Lokal'
@@ -327,9 +327,9 @@ export const SHOWCASE_ITEMS = [
     id: 'sc-5',
     category: 'Kriya',
     title: 'Anyaman Rotan Asli Jepara',
-    owner: 'Pak Bambang Irawan (54 thn)',
+    owner: 'Bambang Irawan',
     location: 'Jepara, Jawa Tengah',
-    description: 'Koleksi perabotan dan souvenir anyaman tangan ramah lingkungan untuk dekorasi rumah minimalis.',
+    description: 'Etalase koleksi perabotan dan suvenir anyaman tangan ramah lingkungan bergaya minimalis untuk pasar lokal & nasional.',
     image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=700&auto=format&fit=crop&q=80',
     color: '#b45309',
     badge: 'Kriya & Kerajinan'
@@ -338,42 +338,42 @@ export const SHOWCASE_ITEMS = [
     id: 'sc-6',
     category: 'Kuliner',
     title: 'Kedai Kopi Rukun Tetangga',
-    owner: 'Mas Hendra & Bu Ani (41 thn)',
+    owner: 'Hendra & Ani',
     location: 'Bandung, Jawa Barat',
-    description: 'Kedai minuman kopi susu gula aren dengan tempat nongkrong asri dan menu camilan pisang lumer.',
+    description: 'Website kedai kopi kekinian dengan galeri menu signature, jam buka, dan promo mingguan yang diedit lewat AI Copilot.',
     image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=700&auto=format&fit=crop&q=80',
     color: '#475569',
     badge: 'Kedai Kopi'
   }
 ];
 
-// Testimoni Pemilik Usaha Usia 40-50 Tahun (AC-H.6)
+// Testimoni Pelaku UMKM Indonesia
 export const TESTIMONIALS = [
   {
     id: 't-1',
-    name: 'Pak Joko Susilo',
-    age: '52 Tahun',
-    business: 'Soto Betawi H. Joko (Pasar Senen)',
+    name: 'Joko Susilo',
+    age: 'Pemilik Usaha Kuliner',
+    business: 'Soto Betawi H. Joko (Jakarta)',
     photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    quote: 'Dulu saya ragu karena sama sekali nggak ngerti komputer. Di NexaWeb, saya cuma ketik menu soto dan nomor WhatsApp seperti kirim pesan ke anak saya. 10 menit kemudian, link website toko saya sudah bisa saya share ke langganan di grup arisan!',
-    highlight: 'Bebas Jargon & Teks Besar Jelas'
+    quote: 'Dulu saya mengira bikin website toko itu rumit dan mahal. Di NexaWeb, saya cukup ketik daftar menu dan nomor WhatsApp ke AI Copilot—kurang dari 10 menit, tampilan website toko sudah rapi dan siap dibagikan ke pelanggan!',
+    highlight: 'Cepat & Bebas Coding'
   },
   {
     id: 't-2',
-    name: 'Ibu Sri Wahyuni',
-    age: '47 Tahun',
-    business: 'Dapoer Berkah Katering (Pasar Minggu)',
+    name: 'Sri Wahyuni',
+    age: 'Founder Katering Rumahan',
+    business: 'Dapoer Berkah Katering (Jakarta Selatan)',
     photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80',
-    quote: 'Biasanya kalau mau bikin website ditawari agensi jutaan rupiah dan nunggunya berminggu-minggu. Dengan NexaWeb, saya bisa atur sendiri menu paket nasi liwet dan pesanan katering langsung masuk ke WhatsApp toko tanpa komisi aplikasi.',
-    highlight: 'Pesanan Langsung Masuk WhatsApp'
+    quote: 'Dengan NexaWeb, saya bisa ubah sendiri harga, deskripsi, dan foto paket katering kapan saja tanpa harus bayar jasa agensi lagi. Pesanan pun langsung masuk ke WhatsApp bisnis tanpa potongan komisi.',
+    highlight: 'Order WhatsApp 0% Komisi'
   },
   {
     id: 't-3',
-    name: 'Ibu Maya Dewi',
-    age: '43 Tahun',
+    name: 'Maya Dewi',
+    age: 'Owner Brand Fashion Lokal',
     business: 'Galeri Batik Sekar Ayu (Solo)',
     photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
-    quote: 'Bikin toko terlihat sangat profesional dan meyakinkan untuk pembeli dari luar kota. Saya paling suka fitur ganti warnanya yang tinggal klik, tidak ada istilah bahasa Inggris yang bikin pusing.',
-    highlight: 'Tingkatkan Kepercayaan Pembeli Luar Kota'
+    quote: 'Advance Designer Mode-nya seperti Canva—tinggal drag & drop dengan garis bantu otomatis! Katalog batik kami jadi terlihat sangat profesional dan meningkatkan kepercayaan pembeli dari luar kota.',
+    highlight: 'Desain Bebas Ala Canva'
   }
 ];
