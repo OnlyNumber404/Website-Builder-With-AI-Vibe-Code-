@@ -14,15 +14,26 @@ import {
   Sparkles,
   ChevronRight,
   Sliders,
-  Check
+  Check,
+  Shapes,
+  Square,
+  Circle,
+  Triangle,
+  Star,
+  Heart,
+  ArrowRight,
+  Hexagon,
+  Minus
 } from 'lucide-react';
 import {
   CanvasElement,
   CanvasElementCategory,
   AdvanceCanvas,
+  ShapeType,
   CANVAS_DEFAULT_WIDTH,
   CANVAS_DEFAULT_HEIGHT
 } from '@/lib/advanceTypes';
+import AdvanceShapeRenderer from '@/components/advance/AdvanceShapeRenderer';
 
 export interface AdvancePaletteSidebarProps {
   activeCanvas: AdvanceCanvas;
@@ -33,7 +44,7 @@ export interface AdvancePaletteSidebarProps {
   onUploadImage: (imageUrl: string) => void;
 }
 
-export type PaletteCategory = 'text' | 'image' | 'product' | 'button' | 'nav' | 'background';
+export type PaletteCategory = 'text' | 'shape' | 'image' | 'product' | 'button' | 'nav' | 'background';
 
 export default function AdvancePaletteSidebar({
   activeCanvas,
@@ -258,7 +269,8 @@ export default function AdvancePaletteSidebar({
       height,
       color: bg,
       properties: {
-        navBrand: 'Toko Saya',
+        navBrand: '',
+        navLogoUrl: '',
         navVariant: variant,
         color: textColor,
         navItems: [
@@ -271,8 +283,65 @@ export default function AdvancePaletteSidebar({
     });
   };
 
+  // 6. Shape Presets (AC-SHP-01)
+  const [selectedShapeColor, setSelectedShapeColor] = useState<string>('#2563eb');
+
+  const handleAddShape = (
+    shapeType: ShapeType,
+    colorOverride?: string,
+    options?: {
+      width?: number;
+      height?: number;
+      borderColor?: string;
+      borderWidth?: number;
+      borderStyle?: 'solid' | 'dashed' | 'dotted';
+      borderRadius?: number;
+      opacity?: number;
+      shadow?: 'none' | 'sm' | 'md' | 'lg';
+    }
+  ) => {
+    let width = options?.width || 160;
+    let height = options?.height || 160;
+
+    if (shapeType === 'rectangle') {
+      width = options?.width || 240;
+      height = options?.height || 140;
+    } else if (shapeType === 'rounded-rect') {
+      width = options?.width || 220;
+      height = options?.height || 140;
+    } else if (shapeType === 'arrow-right') {
+      width = options?.width || 200;
+      height = options?.height || 90;
+    } else if (shapeType === 'line') {
+      width = options?.width || 340;
+      height = options?.height || 28;
+    }
+
+    const { posX, posY } = getCenterCoords(width, height);
+    const shapeColor = colorOverride || selectedShapeColor;
+
+    onAddElement({
+      category: 'SHAPE',
+      posX,
+      posY,
+      width,
+      height,
+      color: shapeColor,
+      properties: {
+        shapeType,
+        borderColor: options?.borderColor || 'transparent',
+        borderWidth: options?.borderWidth || 0,
+        borderStyle: options?.borderStyle || 'solid',
+        borderRadius: options?.borderRadius ?? (shapeType === 'rounded-rect' ? 24 : 0),
+        opacity: options?.opacity ?? 1,
+        shadow: options?.shadow || 'none'
+      }
+    });
+  };
+
   const navCategories = [
     { id: 'text', label: 'Teks', icon: Type },
+    { id: 'shape', label: 'Shape', icon: Shapes },
     { id: 'image', label: 'Unggah', icon: Upload },
     { id: 'product', label: 'Produk', icon: ShoppingBag },
     { id: 'button', label: 'Tombol', icon: MousePointerClick },
@@ -332,6 +401,7 @@ export default function AdvancePaletteSidebar({
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
                 {activeTab === 'text' && 'Gaya Huruf & Teks'}
+                {activeTab === 'shape' && 'Shape & Bentuk Geometris'}
                 {activeTab === 'image' && 'Unggah Galeri Gambar'}
                 {activeTab === 'product' && 'Template Kartu Produk'}
                 {activeTab === 'button' && 'Varian Tombol CTA'}
@@ -510,7 +580,214 @@ export default function AdvancePaletteSidebar({
             )}
 
             {/* ============================================================= */}
-            {/* 2. UNGGAH GAMBAR (AC-IMG-01..02)                              */}
+            {/* 2. SHAPE & BENTUK GEOMETRIS (AC-SHP-01)                       */}
+            {/* ============================================================= */}
+            {activeTab === 'shape' && (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-500 font-medium">
+                  Klik bentuk geometris untuk menambahkannya ke titik tengah kanvas aktif. Anda dapat mengatur ukuran, warna isian, border, dan posisi secara bebas.
+                </p>
+
+                {/* Pemilih Warna Cepat Isian Shape */}
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                      Warna Isian Shape
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                      {selectedShapeColor}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      { name: 'Nexa Blue', color: '#2563eb' },
+                      { name: 'Dark Navy', color: '#0f172a' },
+                      { name: 'Emerald', color: '#10b981' },
+                      { name: 'Amber', color: '#f59e0b' },
+                      { name: 'Rose', color: '#ef4444' },
+                      { name: 'Violet', color: '#8b5cf6' },
+                      { name: 'Cyan', color: '#06b6d4' },
+                      { name: 'Putih', color: '#ffffff' }
+                    ].map((swatch) => (
+                      <button
+                        key={swatch.color}
+                        type="button"
+                        onClick={() => setSelectedShapeColor(swatch.color)}
+                        className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-all ${
+                          selectedShapeColor.toLowerCase() === swatch.color.toLowerCase()
+                            ? 'ring-2 ring-blue-600 ring-offset-1 scale-110 shadow-xs border-transparent'
+                            : 'border-slate-300 hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: swatch.color }}
+                        title={swatch.name}
+                      >
+                        {selectedShapeColor.toLowerCase() === swatch.color.toLowerCase() && (
+                          <Check
+                            className={`w-3.5 h-3.5 ${
+                              swatch.color === '#ffffff' ? 'text-slate-900' : 'text-white'
+                            }`}
+                          />
+                        )}
+                      </button>
+                    ))}
+                    {/* Custom Hex Picker */}
+                    <label
+                      className="w-7 h-7 rounded-lg border border-slate-300 bg-gradient-to-br from-red-400 via-amber-300 via-emerald-400 to-blue-500 flex items-center justify-center cursor-pointer hover:scale-105 transition shadow-2xs"
+                      title="Pilih Warna Kustom"
+                    >
+                      <input
+                        type="color"
+                        value={selectedShapeColor}
+                        onChange={(e) => setSelectedShapeColor(e.target.value)}
+                        className="w-0 h-0 opacity-0 absolute pointer-events-none"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Grid Bentuk Dasar (9 Macam Bentuk Geometris) */}
+                <div>
+                  <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">
+                    Pilihan Bentuk (Klik untuk Tambah)
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { type: 'rectangle' as ShapeType, label: 'Persegi', desc: 'Kotak' },
+                      { type: 'rounded-rect' as ShapeType, label: 'Kotak Halus', desc: 'Rounded' },
+                      { type: 'circle' as ShapeType, label: 'Lingkaran', desc: 'Circle' },
+                      { type: 'triangle' as ShapeType, label: 'Segitiga', desc: 'Triangle' },
+                      { type: 'star' as ShapeType, label: 'Bintang', desc: 'Star 5-pt' },
+                      { type: 'heart' as ShapeType, label: 'Hati / Love', desc: 'Heart' },
+                      { type: 'arrow-right' as ShapeType, label: 'Panah', desc: 'Arrow' },
+                      { type: 'hexagon' as ShapeType, label: 'Segienam', desc: 'Hexagon' },
+                      { type: 'line' as ShapeType, label: 'Garis', desc: 'Divider' }
+                    ].map((shp) => (
+                      <button
+                        key={shp.type}
+                        type="button"
+                        onClick={() => handleAddShape(shp.type)}
+                        className="p-2 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/40 hover:shadow-md bg-white flex flex-col items-center justify-center gap-1.5 transition group active:scale-95"
+                        title={`Tambahkan ${shp.label} (${shp.desc})`}
+                      >
+                        <div className="w-10 h-10 flex items-center justify-center">
+                          <AdvanceShapeRenderer
+                            shapeType={shp.type}
+                            fillColor={selectedShapeColor}
+                            borderRadius={shp.type === 'rounded-rect' ? 8 : 2}
+                            className="w-8 h-8 drop-shadow-xs"
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-700 group-hover:text-blue-600 text-center leading-tight">
+                          {shp.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preset Gaya Shape Populer */}
+                <div className="pt-2">
+                  <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-2">
+                    Preset Gaya Populer
+                  </h4>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {/* Outline / Bingkai Transparan */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddShape('rounded-rect', 'transparent', {
+                          borderColor: selectedShapeColor,
+                          borderWidth: 3,
+                          borderRadius: 20
+                        })
+                      }
+                      className="p-3 text-left rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 transition flex items-center gap-3 group"
+                    >
+                      <div className="w-8 h-8 rounded-lg border-2 border-blue-600 shrink-0" />
+                      <div>
+                        <p className="font-bold text-slate-900 text-xs group-hover:text-blue-600">
+                          Kotak Garis Tepi (Outline)
+                        </p>
+                        <span className="text-[10px] text-slate-500">Border 3px • Latar transparan</span>
+                      </div>
+                    </button>
+
+                    {/* Badge Bintang Promo Emas */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddShape('star', '#f59e0b', {
+                          shadow: 'md',
+                          width: 150,
+                          height: 150
+                        })
+                      }
+                      className="p-3 text-left rounded-xl bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200 transition flex items-center gap-3 group"
+                    >
+                      <div className="w-8 h-8 text-amber-500 flex items-center justify-center shrink-0">
+                        <Star className="w-7 h-7 fill-amber-500" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-amber-950 text-xs group-hover:text-amber-700">
+                          Bintang Promo Emas
+                        </p>
+                        <span className="text-[10px] text-amber-600">Bintang warna emas + bayangan</span>
+                      </div>
+                    </button>
+
+                    {/* Kartu Elevated Lembut */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddShape('rounded-rect', '#ffffff', {
+                          shadow: 'lg',
+                          borderColor: '#e2e8f0',
+                          borderWidth: 1,
+                          borderRadius: 24,
+                          width: 280,
+                          height: 180
+                        })
+                      }
+                      className="p-3 text-left rounded-xl bg-white hover:bg-slate-50 border border-slate-200 hover:border-blue-300 shadow-xs transition flex items-center gap-3 group"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 shadow-md shrink-0" />
+                      <div>
+                        <p className="font-bold text-slate-900 text-xs group-hover:text-blue-600">
+                          Kartu Kontainer Elevated
+                        </p>
+                        <span className="text-[10px] text-slate-500">Latar putih + bayangan halus</span>
+                      </div>
+                    </button>
+
+                    {/* Garis Pemisah Konten */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAddShape('line', '#94a3b8', {
+                          borderWidth: 4,
+                          width: 400,
+                          height: 28
+                        })
+                      }
+                      className="p-3 text-left rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 transition flex items-center gap-3 group"
+                    >
+                      <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-1 bg-slate-400 rounded-full" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 text-xs group-hover:text-blue-600">
+                          Garis Pembatas Halus
+                        </p>
+                        <span className="text-[10px] text-slate-500">Divider tebal 4px</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ============================================================= */}
+            {/* 3. UNGGAH GAMBAR (AC-IMG-01..02)                              */}
             {/* ============================================================= */}
             {activeTab === 'image' && (
               <div className="space-y-4">

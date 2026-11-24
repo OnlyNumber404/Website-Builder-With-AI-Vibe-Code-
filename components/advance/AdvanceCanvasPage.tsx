@@ -12,24 +12,31 @@ import {
   Upload,
   Check,
   Maximize2,
-  Edit3
+  Edit3,
+  Sparkles
 } from 'lucide-react';
 import {
   AdvanceCanvas,
   CanvasElement,
+  AiCursorState,
   CANVAS_DEFAULT_WIDTH,
   CANVAS_DEFAULT_HEIGHT
 } from '@/lib/advanceTypes';
+import AdvanceShapeRenderer from '@/components/advance/AdvanceShapeRenderer';
+import { getShapeClipPath, HEART_CLIP_PATH_D } from '@/lib/advanceMaskUtils';
 
 export interface AdvanceCanvasPageProps {
   canvas: AdvanceCanvas;
   isActive: boolean;
   canDelete: boolean;
-  selectedElementId: string | null;
+  zoomLevel?: number;
+  selectedElementIds: string[];
   allCanvases: AdvanceCanvas[];
+  aiCursor?: AiCursorState | null;
+  recentlyAddedElementId?: string | null;
   onSelectCanvas: () => void;
-  onSelectElement: (elementId: string | null) => void;
-  onUpdateElementPosition: (elementId: string, posX: number, posY: number) => void;
+  onSelectElements: (elementIds: string[]) => void;
+  onBatchUpdatePositions: (updates: { id: string; posX: number; posY: number }[]) => void;
   onUpdateElementSize: (elementId: string, width: number, height: number, posX?: number, posY?: number) => void;
   onUpdateElementText: (elementId: string, newText: string) => void;
   onUpdateProductCardText: (elementId: string, updates: { title?: string; price?: string; description?: string; buttonText?: string }) => void;
@@ -46,11 +53,14 @@ export default function AdvanceCanvasPage({
   canvas,
   isActive,
   canDelete,
-  selectedElementId,
+  zoomLevel = 1,
+  selectedElementIds,
   allCanvases,
+  aiCursor,
+  recentlyAddedElementId,
   onSelectCanvas,
-  onSelectElement,
-  onUpdateElementPosition,
+  onSelectElements,
+  onBatchUpdatePositions,
   onUpdateElementSize,
   onUpdateElementText,
   onUpdateProductCardText,
@@ -77,33 +87,94 @@ export default function AdvanceCanvasPage({
     label?: string;
   }[]>([]);
 
-  const elementsRef = useRef<CanvasElement[]>(canvas.elements);
-  useEffect(() => {
-    elementsRef.current = canvas.elements;
-  }, [canvas.elements]);
+  // Smart Equal-Spacing & Distance Measurement Guides (px)
+  const [spacingGuides, setSpacingGuides] = useState<{
+    orientation: 'horizontal' | 'vertical';
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    distance: number;
+    isMatched: boolean;
+  }[]>([]);
 
-  // Dragging State
-  const dragRef = useRef<{
-    isDragging: boolean;
-    elementId: string;
-    startX: number;
-    startY: number;
-    initialPosX: number;
-    initialPosY: number;
+  // 60FPS Local GPU Drag & Resize States (ZERO parent re-render during mousemove!)
+  const [liveDrag, setLiveDrag] = useState<{
+    ids: Set<string>;
+    dx: number;
+    dy: number;
+  } | null>(null);
+
+  const [liveResize, setLiveResize] = useState<{
+    id: string;
+    posX: number;
+    posY: number;
     width: number;
     height: number;
+    aspectLocked?: boolean;
+  } | null>(null);
+
+  // Marquee Multi-Select Box State (Hold Left-Click & Drag Kotak Transparan)
+  const [marqueeBox, setMarqueeBox] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    previewIds: Set<string>;
+  } | null>(null);
+
+  // Stable refs so window mouse listeners NEVER detach/re-attach during drag
+  const elementsRef = useRef<CanvasElement[]>(canvas.elements);
+  const zoomRef = useRef<number>(zoomLevel);
+  const canvasHeightRef = useRef<number>(canvas.height || CANVAS_DEFAULT_HEIGHT);
+  const selectedIdsRef = useRef<string[]>(selectedElementIds);
+  const onBatchUpdatePositionsRef = useRef(onBatchUpdatePositions);
+  const onUpdateElementSizeRef = useRef(onUpdateElementSize);
+  const onSelectElementsRef = useRef(onSelectElements);
+  const onSelectCanvasRef = useRef(onSelectCanvas);
+
+  elementsRef.current = canvas.elements;
+  zoomRef.current = zoomLevel || 1;
+  canvasHeightRef.current = canvas.height || CANVAS_DEFAULT_HEIGHT;
+  selectedIdsRef.current = selectedElementIds;
+  onBatchUpdatePositionsRef.current = onBatchUpdatePositions;
+  onUpdateElementSizeRef.current = onUpdateElementSize;
+  onSelectElementsRef.current = onSelectElements;
+  onSelectCanvasRef.current = onSelectCanvas;
+
+  const hasJustDraggedRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+
+  // Group / Single Dragging Ref
+  const dragRef = useRef<{
+    isDragging: boolean;
+    hasMoved: boolean;
+    anchorId: string;
+    dragItems: { id: string; initialPosX: number; initialPosY: number }[];
+    startX: number;
+    startY: number;
+    anchorInitX: number;
+    anchorInitY: number;
+    anchorWidth: number;
+    anchorHeight: number;
+    lastDx: number;
+    lastDy: number;
   }>({
     isDragging: false,
-    elementId: '',
+    hasMoved: false,
+    anchorId: '',
+    dragItems: [],
     startX: 0,
     startY: 0,
-    initialPosX: 0,
-    initialPosY: 0,
-    width: 0,
-    height: 0
+    anchorInitX: 0,
+    anchorInitY: 0,
+    anchorWidth: 0,
+    anchorHeight: 0,
+    lastDx: 0,
+    lastDy: 0
   });
 
-  // Resizing State
+  // Resizing Ref
   const resizeRef = useRef<{
     isResizing: boolean;
     elementId: string;
@@ -114,6 +185,7 @@ export default function AdvanceCanvasPage({
     initialHeight: number;
     initialPosX: number;
     initialPosY: number;
+    lastBox: { posX: number; posY: number; width: number; height: number } | null;
   }>({
     isResizing: false,
     elementId: '',
@@ -123,33 +195,93 @@ export default function AdvanceCanvasPage({
     initialWidth: 0,
     initialHeight: 0,
     initialPosX: 0,
-    initialPosY: 0
+    initialPosY: 0,
+    lastBox: null
   });
 
-  // Global mousemove and mouseup listeners for smooth drag & resize
+  // Marquee Multi-Select Ref
+  const marqueeRef = useRef<{
+    isSelecting: boolean;
+    hasMoved: boolean;
+    startX: number;
+    startY: number;
+    previewIds: string[];
+  }>({
+    isSelecting: false,
+    hasMoved: false,
+    startX: 0,
+    startY: 0,
+    previewIds: []
+  });
+
+  // Global mousemove and mouseup listeners (registered ONCE on mount -> ultra-fast 60fps!)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      // 1. Dragging element with Smart Auto-Snap & Canva Alignment Guides
+      const zoom = zoomRef.current || 1;
+      const canvasHeight = canvasHeightRef.current;
+
+      // 0. Marquee Multi-Select Dragging (Kotak Transparan ala Canva)
+      if (marqueeRef.current.isSelecting && canvasRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const currX = Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH, (e.clientX - rect.left) / zoom));
+        const currY = Math.max(0, Math.min(canvasHeight, (e.clientY - rect.top) / zoom));
+
+        const x = Math.min(marqueeRef.current.startX, currX);
+        const y = Math.min(marqueeRef.current.startY, currY);
+        const width = Math.abs(currX - marqueeRef.current.startX);
+        const height = Math.abs(currY - marqueeRef.current.startY);
+
+        if (width > 4 || height > 4) {
+          marqueeRef.current.hasMoved = true;
+        }
+
+        const hitIds: string[] = [];
+        for (const el of elementsRef.current) {
+          const elH = Math.max(20, el.height);
+          if (
+            x < el.posX + el.width &&
+            x + width > el.posX &&
+            y < el.posY + elH &&
+            y + height > el.posY
+          ) {
+            hitIds.push(el.id);
+          }
+        }
+        marqueeRef.current.previewIds = hitIds;
+
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+          setMarqueeBox({ x, y, width, height, previewIds: new Set(hitIds) });
+        });
+        return;
+      }
+
+      // 1. Dragging element(s) with 60fps GPU translate3d + Smart Auto-Snap Guides
       if (dragRef.current.isDragging) {
-        const dx = e.clientX - dragRef.current.startX;
-        const dy = e.clientY - dragRef.current.startY;
-        const elId = dragRef.current.elementId;
-        const elWidth = dragRef.current.width;
-        const elHeight = dragRef.current.height;
+        const rawDx = (e.clientX - dragRef.current.startX) / zoom;
+        const rawDy = (e.clientY - dragRef.current.startY) / zoom;
 
-        let rawX = dragRef.current.initialPosX + dx;
-        let rawY = dragRef.current.initialPosY + dy;
+        // Abaikan getaran tangan kecil di bawah 4px agar klik murni tidak memicu drag
+        if (!dragRef.current.hasMoved && Math.hypot(rawDx, rawDy) < 4) {
+          return;
+        }
+        dragRef.current.hasMoved = true;
 
+        const elWidth = dragRef.current.anchorWidth;
+        const elHeight = dragRef.current.anchorHeight;
+        let rawX = dragRef.current.anchorInitX + rawDx;
+        let rawY = dragRef.current.anchorInitY + rawDy;
+
+        const draggedIdSet = new Set(dragRef.current.dragItems.map((d) => d.id));
         const SNAP_THRESHOLD = 7;
         const currentGuides: { type: 'vertical' | 'horizontal'; pos: number; label?: string }[] = [];
-        const otherElements = elementsRef.current.filter((item) => item.id !== elId);
+        const otherElements = elementsRef.current.filter((item) => !draggedIdSet.has(item.id));
 
-        // A. HORIZONTAL SNAPPING (X AXIS ALIGNMENT)
+        // A. HORIZONTAL SNAPPING
         let bestDiffX = SNAP_THRESHOLD + 1;
         let snappedX = rawX;
         let guideX: { type: 'vertical'; pos: number; label: string } | null = null;
 
-        // Snap to Canvas Center (500px)
         const canvasCenterX = Math.round(CANVAS_DEFAULT_WIDTH / 2);
         const currentCenterX = rawX + elWidth / 2;
         const centerCanvasDiff = Math.abs(currentCenterX - canvasCenterX);
@@ -159,29 +291,23 @@ export default function AdvanceCanvasPage({
           guideX = { type: 'vertical', pos: canvasCenterX, label: 'Tengah Kanvas' };
         }
 
-        // Snap against other elements on the active canvas
         for (const other of otherElements) {
           const otherLeft = other.posX;
           const otherCenterX = Math.round(other.posX + other.width / 2);
           const otherRight = other.posX + other.width;
 
-          // 1. Rata Kiri (Left Alignment)
           const diffLeft = Math.abs(rawX - otherLeft);
           if (diffLeft <= SNAP_THRESHOLD && diffLeft < bestDiffX) {
             bestDiffX = diffLeft;
             snappedX = otherLeft;
             guideX = { type: 'vertical', pos: otherLeft, label: 'Rata Kiri' };
           }
-
-          // 2. Rata Tengah (Center Alignment)
           const diffCenter = Math.abs(currentCenterX - otherCenterX);
           if (diffCenter <= SNAP_THRESHOLD && diffCenter < bestDiffX) {
             bestDiffX = diffCenter;
             snappedX = otherCenterX - elWidth / 2;
             guideX = { type: 'vertical', pos: otherCenterX, label: 'Rata Tengah' };
           }
-
-          // 3. Rata Kanan (Right Alignment)
           const diffRight = Math.abs(rawX + elWidth - otherRight);
           if (diffRight <= SNAP_THRESHOLD && diffRight < bestDiffX) {
             bestDiffX = diffRight;
@@ -195,12 +321,11 @@ export default function AdvanceCanvasPage({
           currentGuides.push(guideX);
         }
 
-        // B. VERTICAL SNAPPING (Y AXIS ALIGNMENT)
+        // B. VERTICAL SNAPPING
         let bestDiffY = SNAP_THRESHOLD + 1;
         let snappedY = rawY;
         let guideY: { type: 'horizontal'; pos: number; label: string } | null = null;
 
-        const canvasHeight = canvas.height || CANVAS_DEFAULT_HEIGHT;
         const canvasCenterY = Math.round(canvasHeight / 2);
         const currentCenterY = rawY + elHeight / 2;
         const centerCanvasVDiff = Math.abs(currentCenterY - canvasCenterY);
@@ -210,29 +335,23 @@ export default function AdvanceCanvasPage({
           guideY = { type: 'horizontal', pos: canvasCenterY, label: 'Tengah Kanvas' };
         }
 
-        // Snap against other elements on the active canvas
         for (const other of otherElements) {
           const otherTop = other.posY;
           const otherCenterY = Math.round(other.posY + other.height / 2);
           const otherBottom = other.posY + other.height;
 
-          // 1. Rata Atas (Top Alignment)
           const diffTop = Math.abs(rawY - otherTop);
           if (diffTop <= SNAP_THRESHOLD && diffTop < bestDiffY) {
             bestDiffY = diffTop;
             snappedY = otherTop;
             guideY = { type: 'horizontal', pos: otherTop, label: 'Rata Atas' };
           }
-
-          // 2. Rata Tengah Vertikal (Vertical Center Alignment)
           const diffCenterY = Math.abs(currentCenterY - otherCenterY);
           if (diffCenterY <= SNAP_THRESHOLD && diffCenterY < bestDiffY) {
             bestDiffY = diffCenterY;
             snappedY = otherCenterY - elHeight / 2;
             guideY = { type: 'horizontal', pos: otherCenterY, label: 'Rata Tengah' };
           }
-
-          // 3. Rata Bawah (Bottom Alignment)
           const diffBottom = Math.abs(rawY + elHeight - otherBottom);
           if (diffBottom <= SNAP_THRESHOLD && diffBottom < bestDiffY) {
             bestDiffY = diffBottom;
@@ -246,46 +365,475 @@ export default function AdvanceCanvasPage({
           currentGuides.push(guideY);
         }
 
-        const newX = Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 50, Math.round(rawX)));
-        const newY = Math.max(0, Math.min(canvasHeight - 30, Math.round(rawY)));
+        // C. SMART EQUAL-SPACING AUTO-SNAP & LIVE DISTANCE MEASUREMENT (PX)
+        const currentSpacing: {
+          orientation: 'horizontal' | 'vertical';
+          x1: number;
+          y1: number;
+          x2: number;
+          y2: number;
+          distance: number;
+          isMatched: boolean;
+        }[] = [];
+        const GAP_SNAP = 8;
 
-        setActiveGuides(currentGuides);
-        onUpdateElementPosition(elId, newX, newY);
+        // C1. Horizontal Row Spacing (e.g. Produk 1 --gap-- Produk 2 --gap-- Produk 3)
+        const rowNeighbors = otherElements
+          .filter((o) => o.posY < rawY + elHeight && o.posY + o.height > rawY)
+          .sort((a, b) => a.posX - b.posX);
+
+        const leftNeighbors = rowNeighbors.filter((o) => o.posX + o.width <= rawX + 4);
+        const rightNeighbors = rowNeighbors.filter((o) => o.posX >= rawX + elWidth - 4);
+        const nearestLeft = leftNeighbors.length > 0 ? leftNeighbors[leftNeighbors.length - 1] : null;
+        const nearestRight = rightNeighbors.length > 0 ? rightNeighbors[0] : null;
+
+        let horizGapMatched = false;
+
+        // Pattern 1: [A] --gap-- [B] --gap-- [Dragged]
+        if (leftNeighbors.length >= 2 && nearestLeft) {
+          const prevLeft = leftNeighbors[leftNeighbors.length - 2];
+          const refGap = Math.round(nearestLeft.posX - (prevLeft.posX + prevLeft.width));
+          const currGap = Math.round(rawX - (nearestLeft.posX + nearestLeft.width));
+          if (refGap > 0 && Math.abs(currGap - refGap) <= GAP_SNAP) {
+            rawX = nearestLeft.posX + nearestLeft.width + refGap;
+            horizGapMatched = true;
+            const midY1 = Math.round(
+              (Math.max(prevLeft.posY, nearestLeft.posY) +
+                Math.min(prevLeft.posY + prevLeft.height, nearestLeft.posY + nearestLeft.height)) / 2
+            );
+            const midY2 = Math.round(
+              (Math.max(nearestLeft.posY, rawY) +
+                Math.min(nearestLeft.posY + nearestLeft.height, rawY + elHeight)) / 2
+            );
+            currentSpacing.push(
+              { orientation: 'horizontal', x1: prevLeft.posX + prevLeft.width, y1: midY1, x2: nearestLeft.posX, y2: midY1, distance: refGap, isMatched: true },
+              { orientation: 'horizontal', x1: nearestLeft.posX + nearestLeft.width, y1: midY2, x2: rawX, y2: midY2, distance: refGap, isMatched: true }
+            );
+          }
+        }
+
+        // Pattern 2: [Dragged] --gap-- [A] --gap-- [B]
+        if (!horizGapMatched && rightNeighbors.length >= 2 && nearestRight) {
+          const nextRight = rightNeighbors[1];
+          const refGap = Math.round(nextRight.posX - (nearestRight.posX + nearestRight.width));
+          const currGap = Math.round(nearestRight.posX - (rawX + elWidth));
+          if (refGap > 0 && Math.abs(currGap - refGap) <= GAP_SNAP) {
+            rawX = nearestRight.posX - refGap - elWidth;
+            horizGapMatched = true;
+            const midY1 = Math.round(
+              (Math.max(rawY, nearestRight.posY) +
+                Math.min(rawY + elHeight, nearestRight.posY + nearestRight.height)) / 2
+            );
+            const midY2 = Math.round(
+              (Math.max(nearestRight.posY, nextRight.posY) +
+                Math.min(nearestRight.posY + nearestRight.height, nextRight.posY + nextRight.height)) / 2
+            );
+            currentSpacing.push(
+              { orientation: 'horizontal', x1: rawX + elWidth, y1: midY1, x2: nearestRight.posX, y2: midY1, distance: refGap, isMatched: true },
+              { orientation: 'horizontal', x1: nearestRight.posX + nearestRight.width, y1: midY2, x2: nextRight.posX, y2: midY2, distance: refGap, isMatched: true }
+            );
+          }
+        }
+
+        // Pattern 3: Centered between [Left] --gap-- [Dragged] --gap-- [Right]
+        if (!horizGapMatched && nearestLeft && nearestRight) {
+          const availableSpan = nearestRight.posX - (nearestLeft.posX + nearestLeft.width);
+          const idealGap = Math.round((availableSpan - elWidth) / 2);
+          const currLeftGap = Math.round(rawX - (nearestLeft.posX + nearestLeft.width));
+          if (idealGap > 0 && Math.abs(currLeftGap - idealGap) <= GAP_SNAP) {
+            rawX = nearestLeft.posX + nearestLeft.width + idealGap;
+            horizGapMatched = true;
+            const midY = Math.round(rawY + elHeight / 2);
+            currentSpacing.push(
+              { orientation: 'horizontal', x1: nearestLeft.posX + nearestLeft.width, y1: midY, x2: rawX, y2: midY, distance: idealGap, isMatched: true },
+              { orientation: 'horizontal', x1: rawX + elWidth, y1: midY, x2: nearestRight.posX, y2: midY, distance: idealGap, isMatched: true }
+            );
+          }
+        }
+
+        // Live horizontal distance readout to immediate neighbors even when not equal-snapped
+        if (!horizGapMatched) {
+          if (nearestLeft) {
+            const gapL = Math.round(rawX - (nearestLeft.posX + nearestLeft.width));
+            if (gapL > 2 && gapL < 300) {
+              const midY = Math.round(
+                (Math.max(nearestLeft.posY, rawY) +
+                  Math.min(nearestLeft.posY + nearestLeft.height, rawY + elHeight)) / 2
+              );
+              currentSpacing.push({
+                orientation: 'horizontal',
+                x1: nearestLeft.posX + nearestLeft.width,
+                y1: midY,
+                x2: rawX,
+                y2: midY,
+                distance: gapL,
+                isMatched: false
+              });
+            }
+          }
+          if (nearestRight) {
+            const gapR = Math.round(nearestRight.posX - (rawX + elWidth));
+            if (gapR > 2 && gapR < 300) {
+              const midY = Math.round(
+                (Math.max(nearestRight.posY, rawY) +
+                  Math.min(nearestRight.posY + nearestRight.height, rawY + elHeight)) / 2
+              );
+              currentSpacing.push({
+                orientation: 'horizontal',
+                x1: rawX + elWidth,
+                y1: midY,
+                x2: nearestRight.posX,
+                y2: midY,
+                distance: gapR,
+                isMatched: false
+              });
+            }
+          }
+        }
+
+        // C2. Vertical Column Spacing (stacked rows)
+        const colNeighbors = otherElements
+          .filter((o) => o.posX < rawX + elWidth && o.posX + o.width > rawX)
+          .sort((a, b) => a.posY - b.posY);
+
+        const topNeighbors = colNeighbors.filter((o) => o.posY + o.height <= rawY + 4);
+        const bottomNeighbors = colNeighbors.filter((o) => o.posY >= rawY + elHeight - 4);
+        const nearestTop = topNeighbors.length > 0 ? topNeighbors[topNeighbors.length - 1] : null;
+        const nearestBottom = bottomNeighbors.length > 0 ? bottomNeighbors[0] : null;
+
+        let vertGapMatched = false;
+
+        if (topNeighbors.length >= 2 && nearestTop) {
+          const prevTop = topNeighbors[topNeighbors.length - 2];
+          const refGap = Math.round(nearestTop.posY - (prevTop.posY + prevTop.height));
+          const currGap = Math.round(rawY - (nearestTop.posY + nearestTop.height));
+          if (refGap > 0 && Math.abs(currGap - refGap) <= GAP_SNAP) {
+            rawY = nearestTop.posY + nearestTop.height + refGap;
+            vertGapMatched = true;
+            const midX = Math.round(rawX + elWidth / 2);
+            currentSpacing.push(
+              { orientation: 'vertical', x1: midX, y1: prevTop.posY + prevTop.height, x2: midX, y2: nearestTop.posY, distance: refGap, isMatched: true },
+              { orientation: 'vertical', x1: midX, y1: nearestTop.posY + nearestTop.height, x2: midX, y2: rawY, distance: refGap, isMatched: true }
+            );
+          }
+        }
+
+        if (!vertGapMatched && nearestTop && nearestBottom) {
+          const availableSpan = nearestBottom.posY - (nearestTop.posY + nearestTop.height);
+          const idealGap = Math.round((availableSpan - elHeight) / 2);
+          const currTopGap = Math.round(rawY - (nearestTop.posY + nearestTop.height));
+          if (idealGap > 0 && Math.abs(currTopGap - idealGap) <= GAP_SNAP) {
+            rawY = nearestTop.posY + nearestTop.height + idealGap;
+            vertGapMatched = true;
+            const midX = Math.round(rawX + elWidth / 2);
+            currentSpacing.push(
+              { orientation: 'vertical', x1: midX, y1: nearestTop.posY + nearestTop.height, x2: midX, y2: rawY, distance: idealGap, isMatched: true },
+              { orientation: 'vertical', x1: midX, y1: rawY + elHeight, x2: midX, y2: nearestBottom.posY, distance: idealGap, isMatched: true }
+            );
+          }
+        }
+
+        if (!vertGapMatched) {
+          if (nearestTop) {
+            const gapT = Math.round(rawY - (nearestTop.posY + nearestTop.height));
+            if (gapT > 2 && gapT < 260) {
+              const midX = Math.round(
+                (Math.max(nearestTop.posX, rawX) +
+                  Math.min(nearestTop.posX + nearestTop.width, rawX + elWidth)) / 2
+              );
+              currentSpacing.push({
+                orientation: 'vertical',
+                x1: midX,
+                y1: nearestTop.posY + nearestTop.height,
+                x2: midX,
+                y2: rawY,
+                distance: gapT,
+                isMatched: false
+              });
+            }
+          }
+          if (nearestBottom) {
+            const gapB = Math.round(nearestBottom.posY - (rawY + elHeight));
+            if (gapB > 2 && gapB < 260) {
+              const midX = Math.round(
+                (Math.max(nearestBottom.posX, rawX) +
+                  Math.min(nearestBottom.posX + nearestBottom.width, rawX + elWidth)) / 2
+              );
+              currentSpacing.push({
+                orientation: 'vertical',
+                x1: midX,
+                y1: rawY + elHeight,
+                x2: midX,
+                y2: nearestBottom.posY,
+                distance: gapB,
+                isMatched: false
+              });
+            }
+          }
+        }
+
+        // C3. INNER-CONTAINER PADDING AUTO-SNAP & DISTANCE GUIDES
+        // (Jika elemen berada DI DALAM item lain yang lebih besar, misal foto/tombol di dalam kotak card)
+        const elCenterX = rawX + elWidth / 2;
+        const elCenterY = rawY + elHeight / 2;
+        const enclosingParents = otherElements
+          .filter(
+            (o) =>
+              o.width > elWidth + 8 &&
+              o.height > elHeight + 8 &&
+              elCenterX >= o.posX &&
+              elCenterX <= o.posX + o.width &&
+              elCenterY >= o.posY &&
+              elCenterY <= o.posY + o.height
+          )
+          .sort((a, b) => a.width * a.height - b.width * b.height);
+
+        const parentBox = enclosingParents[0] || null;
+
+        if (parentBox) {
+          let padL = Math.round(rawX - parentBox.posX);
+          let padR = Math.round(parentBox.posX + parentBox.width - (rawX + elWidth));
+          let padT = Math.round(rawY - parentBox.posY);
+          let padB = Math.round(parentBox.posY + parentBox.height - (rawY + elHeight));
+
+          let hInnerMatched = false;
+          let vInnerMatched = false;
+
+          // Snap simetris kiri-kanan di dalam parent container
+          if (padL > 2 && padR > 2 && Math.abs(padL - padR) <= GAP_SNAP) {
+            const centeredPad = Math.round((parentBox.width - elWidth) / 2);
+            rawX = parentBox.posX + centeredPad;
+            padL = centeredPad;
+            padR = parentBox.width - elWidth - centeredPad;
+            hInnerMatched = true;
+          }
+
+          // Snap simetris atas-bawah di dalam parent container
+          if (padT > 2 && padB > 2 && Math.abs(padT - padB) <= GAP_SNAP) {
+            const centeredPadV = Math.round((parentBox.height - elHeight) / 2);
+            rawY = parentBox.posY + centeredPadV;
+            padT = centeredPadV;
+            padB = parentBox.height - elHeight - centeredPadV;
+            vInnerMatched = true;
+          }
+
+          // Snap padding sudut seragam: Atas == Kiri (misal foto di dalam card 16px atas & 16px kiri!)
+          if (!vInnerMatched && padL > 4 && padL <= 120 && padT > 2 && Math.abs(padT - padL) <= GAP_SNAP) {
+            rawY = parentBox.posY + padL;
+            padT = padL;
+            vInnerMatched = true;
+            hInnerMatched = true;
+          } else if (!vInnerMatched && padR > 4 && padR <= 120 && padT > 2 && Math.abs(padT - padR) <= GAP_SNAP) {
+            rawY = parentBox.posY + padR;
+            padT = padR;
+            vInnerMatched = true;
+            hInnerMatched = true;
+          } else if (!vInnerMatched && padL > 4 && padL <= 120 && padB > 2 && Math.abs(padB - padL) <= GAP_SNAP) {
+            rawY = parentBox.posY + parentBox.height - elHeight - padL;
+            padB = padL;
+            vInnerMatched = true;
+            hInnerMatched = true;
+          }
+
+          const midY = Math.round(rawY + elHeight / 2);
+          const midX = Math.round(rawX + elWidth / 2);
+
+          if (padL > 2 && padL < parentBox.width) {
+            currentSpacing.push({
+              orientation: 'horizontal',
+              x1: parentBox.posX,
+              y1: midY,
+              x2: rawX,
+              y2: midY,
+              distance: padL,
+              isMatched: hInnerMatched
+            });
+          }
+          if (padR > 2 && padR < parentBox.width) {
+            currentSpacing.push({
+              orientation: 'horizontal',
+              x1: rawX + elWidth,
+              y1: midY,
+              x2: parentBox.posX + parentBox.width,
+              y2: midY,
+              distance: padR,
+              isMatched: hInnerMatched
+            });
+          }
+          if (padT > 2 && padT <= 180) {
+            currentSpacing.push({
+              orientation: 'vertical',
+              x1: midX,
+              y1: parentBox.posY,
+              x2: midX,
+              y2: rawY,
+              distance: padT,
+              isMatched: vInnerMatched
+            });
+          }
+          if (padB > 2 && padB <= 180) {
+            currentSpacing.push({
+              orientation: 'vertical',
+              x1: midX,
+              y1: rawY + elHeight,
+              x2: midX,
+              y2: parentBox.posY + parentBox.height,
+              distance: padB,
+              isMatched: vInnerMatched
+            });
+          }
+        } else {
+          // C4. CANVAS EDGE & CORNER MARGIN AUTO-SNAP + DISTANCE GUIDES
+          // (Saat elemen ditaruh dekat pinggir atau pojokan Kanvas!)
+          let marginL = Math.round(rawX);
+          let marginR = Math.round(CANVAS_DEFAULT_WIDTH - (rawX + elWidth));
+          let marginT = Math.round(rawY);
+          let marginB = Math.round(canvasHeight - (rawY + elHeight));
+          const EDGE_SHOW_THRESHOLD = 140;
+
+          let cornerMatchedL = false;
+          let cornerMatchedR = false;
+          let cornerMatchedT = false;
+          let cornerMatchedB = false;
+
+          // Pojok Kiri-Atas: marginT == marginL
+          if (marginL >= 6 && marginL <= EDGE_SHOW_THRESHOLD && marginT >= 6 && Math.abs(marginT - marginL) <= GAP_SNAP) {
+            rawY = marginL;
+            marginT = marginL;
+            cornerMatchedL = true;
+            cornerMatchedT = true;
+          }
+          // Pojok Kanan-Atas: marginT == marginR
+          else if (marginR >= 6 && marginR <= EDGE_SHOW_THRESHOLD && marginT >= 6 && Math.abs(marginT - marginR) <= GAP_SNAP) {
+            rawY = marginR;
+            marginT = marginR;
+            cornerMatchedR = true;
+            cornerMatchedT = true;
+          }
+          // Pojok Kiri-Bawah: marginB == marginL
+          else if (marginL >= 6 && marginL <= EDGE_SHOW_THRESHOLD && marginB >= 6 && Math.abs(marginB - marginL) <= GAP_SNAP) {
+            rawY = canvasHeight - elHeight - marginL;
+            marginB = marginL;
+            cornerMatchedL = true;
+            cornerMatchedB = true;
+          }
+          // Pojok Kanan-Bawah: marginB == marginR
+          else if (marginR >= 6 && marginR <= EDGE_SHOW_THRESHOLD && marginB >= 6 && Math.abs(marginB - marginR) <= GAP_SNAP) {
+            rawY = canvasHeight - elHeight - marginR;
+            marginB = marginR;
+            cornerMatchedR = true;
+            cornerMatchedB = true;
+          }
+
+          const midY = Math.round(rawY + elHeight / 2);
+          const midX = Math.round(rawX + elWidth / 2);
+
+          if (marginL > 2 && marginL <= EDGE_SHOW_THRESHOLD) {
+            currentSpacing.push({
+              orientation: 'horizontal',
+              x1: 0,
+              y1: midY,
+              x2: rawX,
+              y2: midY,
+              distance: marginL,
+              isMatched: cornerMatchedL
+            });
+          }
+          if (marginR > 2 && marginR <= EDGE_SHOW_THRESHOLD) {
+            currentSpacing.push({
+              orientation: 'horizontal',
+              x1: rawX + elWidth,
+              y1: midY,
+              x2: CANVAS_DEFAULT_WIDTH,
+              y2: midY,
+              distance: marginR,
+              isMatched: cornerMatchedR
+            });
+          }
+          if (marginT > 2 && marginT <= EDGE_SHOW_THRESHOLD) {
+            currentSpacing.push({
+              orientation: 'vertical',
+              x1: midX,
+              y1: 0,
+              x2: midX,
+              y2: rawY,
+              distance: marginT,
+              isMatched: cornerMatchedT
+            });
+          }
+          if (marginB > 2 && marginB <= EDGE_SHOW_THRESHOLD) {
+            currentSpacing.push({
+              orientation: 'vertical',
+              x1: midX,
+              y1: rawY + elHeight,
+              x2: midX,
+              y2: canvasHeight,
+              distance: marginB,
+              isMatched: cornerMatchedB
+            });
+          }
+        }
+
+        const clampedAnchorX = Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 40, Math.round(rawX)));
+        const clampedAnchorY = Math.max(0, Math.min(canvasHeight - 24, Math.round(rawY)));
+        const finalDx = clampedAnchorX - dragRef.current.anchorInitX;
+        const finalDy = clampedAnchorY - dragRef.current.anchorInitY;
+
+        dragRef.current.lastDx = finalDx;
+        dragRef.current.lastDy = finalDy;
+
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+          setLiveDrag({ ids: draggedIdSet, dx: finalDx, dy: finalDy });
+          setActiveGuides(currentGuides);
+          setSpacingGuides(currentSpacing);
+        });
+        return;
       }
 
-      // 2. Resizing element with Smart Dimension Snapping (Ukuran Snap Sama ala Canva)
+      // 2. Resizing element with 60fps Local Preview + Shift Proportional Lock + Smart Dimension Snapping
       if (resizeRef.current.isResizing) {
-        const dx = e.clientX - resizeRef.current.startX;
-        const dy = e.clientY - resizeRef.current.startY;
+        const dx = (e.clientX - resizeRef.current.startX) / zoom;
+        const dy = (e.clientY - resizeRef.current.startY) / zoom;
         const { handle, initialWidth, initialHeight, initialPosX, initialPosY, elementId } = resizeRef.current;
 
         const otherElements = elementsRef.current.filter((item) => item.id !== elementId);
         const SNAP_THRESHOLD = 8;
         const currentGuides: { type: 'vertical' | 'horizontal'; pos: number; label?: string }[] = [];
 
-        // A. Hitung ukuran dasar berdasarkan sudut pegangan resize (handle)
         let rawWidth = initialWidth;
         let rawHeight = initialHeight;
 
         if (handle === 'se') {
-          rawWidth = Math.max(60, Math.round(initialWidth + dx));
-          rawHeight = Math.max(30, Math.round(initialHeight + dy));
+          rawWidth = Math.max(40, Math.round(initialWidth + dx));
+          rawHeight = Math.max(24, Math.round(initialHeight + dy));
         } else if (handle === 'sw') {
-          rawWidth = Math.max(60, Math.round(initialWidth - dx));
-          rawHeight = Math.max(30, Math.round(initialHeight + dy));
+          rawWidth = Math.max(40, Math.round(initialWidth - dx));
+          rawHeight = Math.max(24, Math.round(initialHeight + dy));
         } else if (handle === 'ne') {
-          rawWidth = Math.max(60, Math.round(initialWidth + dx));
-          rawHeight = Math.max(30, Math.round(initialHeight - dy));
+          rawWidth = Math.max(40, Math.round(initialWidth + dx));
+          rawHeight = Math.max(24, Math.round(initialHeight - dy));
         } else if (handle === 'nw') {
-          rawWidth = Math.max(60, Math.round(initialWidth - dx));
-          rawHeight = Math.max(30, Math.round(initialHeight - dy));
+          rawWidth = Math.max(40, Math.round(initialWidth - dx));
+          rawHeight = Math.max(24, Math.round(initialHeight - dy));
         }
 
-        // B. Smart Snap: Menyamakan Lebar (Width) dengan Elemen Lain (Canva Same Width Snap)
+        // HOLD SHIFT = Kunci Rasio Proporsional (Tinggi & Lebar Konsisten!)
+        const aspectLocked = e.shiftKey;
+        if (aspectLocked && initialWidth > 0 && initialHeight > 0) {
+          const aspectRatio = initialWidth / initialHeight;
+          const relW = Math.abs(rawWidth - initialWidth) / initialWidth;
+          const relH = Math.abs(rawHeight - initialHeight) / initialHeight;
+          if (relW >= relH) {
+            rawHeight = Math.max(24, Math.round(rawWidth / aspectRatio));
+          } else {
+            rawWidth = Math.max(40, Math.round(rawHeight * aspectRatio));
+          }
+        }
+
         let bestDiffW = SNAP_THRESHOLD + 1;
         let snappedW = rawWidth;
         let guideW: { type: 'vertical'; pos: number; label: string } | null = null;
-
         for (const other of otherElements) {
           const diffW = Math.abs(rawWidth - other.width);
           if (diffW <= SNAP_THRESHOLD && diffW < bestDiffW) {
@@ -294,108 +842,205 @@ export default function AdvanceCanvasPage({
             const targetX = handle.includes('w')
               ? initialPosX + (initialWidth - other.width)
               : initialPosX + other.width;
-            guideW = {
-              type: 'vertical',
-              pos: targetX,
-              label: `Lebar Sama (${other.width}px)`
-            };
+            guideW = { type: 'vertical', pos: targetX, label: `Lebar Sama (${other.width}px)` };
           }
         }
-
         if (guideW) {
           rawWidth = snappedW;
+          if (aspectLocked && initialWidth > 0 && initialHeight > 0) {
+            rawHeight = Math.max(24, Math.round(rawWidth / (initialWidth / initialHeight)));
+          }
           currentGuides.push(guideW);
         }
 
-        // C. Smart Snap: Menyamakan Tinggi (Height) dengan Elemen Lain (Canva Same Height Snap)
-        let bestDiffH = SNAP_THRESHOLD + 1;
-        let snappedH = rawHeight;
-        let guideH: { type: 'horizontal'; pos: number; label: string } | null = null;
-
-        for (const other of otherElements) {
-          const diffH = Math.abs(rawHeight - other.height);
-          if (diffH <= SNAP_THRESHOLD && diffH < bestDiffH) {
-            bestDiffH = diffH;
-            snappedH = other.height;
-            const targetY = handle.includes('n')
-              ? initialPosY + (initialHeight - other.height)
-              : initialPosY + other.height;
-            guideH = {
-              type: 'horizontal',
-              pos: targetY,
-              label: `Tinggi Sama (${other.height}px)`
-            };
+        if (!aspectLocked) {
+          let bestDiffH = SNAP_THRESHOLD + 1;
+          let snappedH = rawHeight;
+          let guideH: { type: 'horizontal'; pos: number; label: string } | null = null;
+          for (const other of otherElements) {
+            const diffH = Math.abs(rawHeight - other.height);
+            if (diffH <= SNAP_THRESHOLD && diffH < bestDiffH) {
+              bestDiffH = diffH;
+              snappedH = other.height;
+              const targetY = handle.includes('n')
+                ? initialPosY + (initialHeight - other.height)
+                : initialPosY + other.height;
+              guideH = { type: 'horizontal', pos: targetY, label: `Tinggi Sama (${other.height}px)` };
+            }
+          }
+          if (guideH) {
+            rawHeight = snappedH;
+            currentGuides.push(guideH);
           }
         }
 
-        if (guideH) {
-          rawHeight = snappedH;
-          currentGuides.push(guideH);
-        }
-
-        // D. Hitung koordinat posisi baru sesuai arah resize
-        let newWidth = rawWidth;
-        let newHeight = rawHeight;
         let newPosX = initialPosX;
         let newPosY = initialPosY;
-
-        if (handle === 'se') {
-          newWidth = rawWidth;
-          newHeight = rawHeight;
-        } else if (handle === 'sw') {
-          newWidth = rawWidth;
-          newHeight = rawHeight;
-          newPosX = Math.max(0, Math.round(initialPosX + (initialWidth - newWidth)));
+        if (handle === 'sw') {
+          newPosX = Math.max(0, Math.round(initialPosX + (initialWidth - rawWidth)));
         } else if (handle === 'ne') {
-          newWidth = rawWidth;
-          newHeight = rawHeight;
-          newPosY = Math.max(0, Math.round(initialPosY + (initialHeight - newHeight)));
+          newPosY = Math.max(0, Math.round(initialPosY + (initialHeight - rawHeight)));
         } else if (handle === 'nw') {
-          newWidth = rawWidth;
-          newHeight = rawHeight;
-          newPosX = Math.max(0, Math.round(initialPosX + (initialWidth - newWidth)));
-          newPosY = Math.max(0, Math.round(initialPosY + (initialHeight - newHeight)));
+          newPosX = Math.max(0, Math.round(initialPosX + (initialWidth - rawWidth)));
+          newPosY = Math.max(0, Math.round(initialPosY + (initialHeight - rawHeight)));
         }
 
-        setActiveGuides(currentGuides);
-        onUpdateElementSize(elementId, newWidth, newHeight, newPosX, newPosY);
+        const box = { posX: newPosX, posY: newPosY, width: rawWidth, height: rawHeight };
+        resizeRef.current.lastBox = box;
+
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+          setLiveResize({ id: elementId, ...box, aspectLocked });
+          setActiveGuides(currentGuides);
+        });
       }
     };
 
     const handleMouseUp = () => {
-      if (dragRef.current.isDragging || resizeRef.current.isResizing) {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+
+      if (marqueeRef.current.isSelecting) {
+        const hadMoved = marqueeRef.current.hasMoved;
+        const selectedIds = marqueeRef.current.previewIds;
+        marqueeRef.current.isSelecting = false;
+        marqueeRef.current.hasMoved = false;
+        marqueeRef.current.previewIds = [];
+        setMarqueeBox(null);
+
+        if (hadMoved) {
+          hasJustDraggedRef.current = true;
+          setTimeout(() => {
+            hasJustDraggedRef.current = false;
+          }, 80);
+          onSelectCanvasRef.current();
+          onSelectElementsRef.current(selectedIds);
+        }
+      }
+
+      if (dragRef.current.isDragging) {
+        if (dragRef.current.hasMoved) {
+          hasJustDraggedRef.current = true;
+          setTimeout(() => {
+            hasJustDraggedRef.current = false;
+          }, 80);
+
+          const dx = dragRef.current.lastDx;
+          const dy = dragRef.current.lastDy;
+          const canvasHeight = canvasHeightRef.current;
+
+          if (dx !== 0 || dy !== 0) {
+            const updates = dragRef.current.dragItems.map((item) => ({
+              id: item.id,
+              posX: Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 40, Math.round(item.initialPosX + dx))),
+              posY: Math.max(0, Math.min(canvasHeight - 24, Math.round(item.initialPosY + dy)))
+            }));
+            onBatchUpdatePositionsRef.current(updates);
+          }
+        }
         dragRef.current.isDragging = false;
-        resizeRef.current.isResizing = false;
+        dragRef.current.hasMoved = false;
+        dragRef.current.dragItems = [];
+        setLiveDrag(null);
         setActiveGuides([]);
+        setSpacingGuides([]);
+      }
+
+      if (resizeRef.current.isResizing) {
+        hasJustDraggedRef.current = true;
+        setTimeout(() => {
+          hasJustDraggedRef.current = false;
+        }, 80);
+
+        const lastBox = resizeRef.current.lastBox;
+        const elId = resizeRef.current.elementId;
+        resizeRef.current.isResizing = false;
+        resizeRef.current.lastBox = null;
+        setLiveResize(null);
+        setActiveGuides([]);
+
+        if (lastBox) {
+          onUpdateElementSizeRef.current(elId, lastBox.width, lastBox.height, lastBox.posX, lastBox.posY);
+        }
       }
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [canvas.height, onUpdateElementPosition, onUpdateElementSize]);
+  }, []);
 
-  // Start drag handler
+  // Start Marquee Multi-Select on empty canvas hold-drag
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    if (e.target !== e.currentTarget || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const zoom = zoomRef.current || 1;
+    const startX = Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH, (e.clientX - rect.left) / zoom));
+    const startY = Math.max(0, Math.min(canvasHeightRef.current, (e.clientY - rect.top) / zoom));
+
+    setEditingTextId(null);
+    marqueeRef.current = {
+      isSelecting: true,
+      hasMoved: false,
+      startX,
+      startY,
+      previewIds: []
+    };
+  };
+
+  // Start drag handler (single, Shift+Click multi-select, and group drag!)
   const handleElementMouseDown = (e: React.MouseEvent, el: CanvasElement) => {
     e.stopPropagation();
     onSelectCanvas();
-    onSelectElement(el.id);
 
-    // If currently editing text, don't drag
+    let nextSelectedIds: string[];
+    if (e.shiftKey) {
+      if (selectedElementIds.includes(el.id)) {
+        nextSelectedIds = selectedElementIds.filter((id) => id !== el.id);
+      } else {
+        nextSelectedIds = [...selectedElementIds, el.id];
+      }
+      onSelectElements(nextSelectedIds);
+      return;
+    } else if (selectedElementIds.includes(el.id) && selectedElementIds.length > 1) {
+      nextSelectedIds = selectedElementIds;
+    } else {
+      nextSelectedIds = [el.id];
+      onSelectElements(nextSelectedIds);
+    }
+
     if (editingTextId === el.id) return;
+
+    const dragIdSet = new Set(nextSelectedIds);
+    const dragItems = canvas.elements
+      .filter((item) => dragIdSet.has(item.id))
+      .map((item) => ({
+        id: item.id,
+        initialPosX: item.posX,
+        initialPosY: item.posY
+      }));
 
     dragRef.current = {
       isDragging: true,
-      elementId: el.id,
+      hasMoved: false,
+      anchorId: el.id,
+      dragItems,
       startX: e.clientX,
       startY: e.clientY,
-      initialPosX: el.posX,
-      initialPosY: el.posY,
-      width: el.width,
-      height: el.height
+      anchorInitX: el.posX,
+      anchorInitY: el.posY,
+      anchorWidth: el.width,
+      anchorHeight: el.height,
+      lastDx: 0,
+      lastDy: 0
     };
   };
 
@@ -412,21 +1057,27 @@ export default function AdvanceCanvasPage({
       initialWidth: el.width,
       initialHeight: el.height,
       initialPosX: el.posX,
-      initialPosY: el.posY
+      initialPosY: el.posY,
+      lastBox: null
     };
   };
 
   return (
     <div
       onClick={(e) => {
+        if (hasJustDraggedRef.current) return;
         if (e.target === e.currentTarget) {
           onSelectCanvas();
-          onSelectElement(null);
+          onSelectElements([]);
           setEditingTextId(null);
         }
       }}
-      className={`group relative flex flex-col items-center transition-all duration-200 ${
-        isActive ? 'ring-2 ring-blue-500/40 rounded-2xl p-2 bg-blue-50/20' : 'p-2'
+      className={`group relative flex flex-col items-center transition-all duration-300 ${
+        aiCursor?.isActive && aiCursor.targetCanvasId === canvas.id
+          ? 'ring-4 ring-blue-500/50 rounded-2xl p-2 bg-blue-50/40 shadow-[0_0_40px_rgba(37,99,235,0.22)]'
+          : isActive
+          ? 'ring-2 ring-blue-500/40 rounded-2xl p-2 bg-blue-50/20'
+          : 'p-2'
       }`}
     >
       {/* ----------------------------------------------------------------- */}
@@ -446,10 +1097,16 @@ export default function AdvanceCanvasPage({
           <span className="text-slate-400 text-[11px]">
             Halaman {canvas.pageIndex} dari {allCanvases.length}
           </span>
-          {isActive && (
-            <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              ● Aktif
+          {aiCursor?.isActive && aiCursor.targetCanvasId === canvas.id ? (
+            <span className="text-[10px] text-white font-extrabold bg-gradient-to-r from-blue-600 to-cyan-500 px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 animate-pulse">
+              <Sparkles className="w-3 h-3" /> AI Sedang Merancang...
             </span>
+          ) : (
+            isActive && (
+              <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                ● Aktif
+              </span>
+            )
           )}
         </div>
 
@@ -543,10 +1200,12 @@ export default function AdvanceCanvasPage({
       <div
         ref={canvasRef}
         id={canvas.id}
+        onMouseDown={handleCanvasMouseDown}
         onClick={(e) => {
+          if (hasJustDraggedRef.current) return;
           if (e.target === e.currentTarget) {
             onSelectCanvas();
-            onSelectElement(null);
+            onSelectElements([]);
             setEditingTextId(null);
           }
         }}
@@ -560,6 +1219,14 @@ export default function AdvanceCanvasPage({
         }}
         className="relative shadow-2xl rounded-xl border border-slate-300/80 overflow-hidden select-none cursor-default transition-colors duration-150"
       >
+        {/* Hidden SVG ClipPath Definitions for Responsive Shape Masking (Heart, etc.) */}
+        <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
+          <defs>
+            <clipPath id="nexa-clip-heart" clipPathUnits="objectBoundingBox">
+              <path d={HEART_CLIP_PATH_D} />
+            </clipPath>
+          </defs>
+        </svg>
         {/* ============================================================= */}
         {/* SMART ALIGNMENT GUIDES (GARIS BANTU AUTO-SNAP ALA CANVA)       */}
         {/* ============================================================= */}
@@ -595,9 +1262,112 @@ export default function AdvanceCanvasPage({
           }
         })}
 
+        {/* ============================================================= */}
+        {/* SMART DISTANCE & EQUAL-SPACING GUIDES (PX MEASUREMENT BARS)   */}
+        {/* ============================================================= */}
+        {spacingGuides.map((sg, idx) => {
+          if (sg.orientation === 'horizontal') {
+            const left = Math.min(sg.x1, sg.x2);
+            const width = Math.abs(sg.x2 - sg.x1);
+            if (width < 4) return null;
+            return (
+              <div
+                key={`sg-h-${idx}`}
+                style={{ left: `${left}px`, top: `${sg.y1}px`, width: `${width}px` }}
+                className="absolute z-40 pointer-events-none flex items-center justify-center -translate-y-1/2"
+              >
+                <div
+                  className={`w-full h-0.5 relative ${
+                    sg.isMatched ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]' : 'bg-sky-500/80'
+                  }`}
+                >
+                  <span className={`absolute left-0 -top-1.5 w-0.5 h-3.5 ${sg.isMatched ? 'bg-rose-500' : 'bg-sky-500'}`} />
+                  <span className={`absolute right-0 -top-1.5 w-0.5 h-3.5 ${sg.isMatched ? 'bg-rose-500' : 'bg-sky-500'}`} />
+                </div>
+                <span
+                  className={`absolute -top-6 px-1.5 py-0.5 rounded text-[10px] font-black font-mono text-white shadow-md whitespace-nowrap ${
+                    sg.isMatched ? 'bg-rose-500' : 'bg-sky-600'
+                  }`}
+                >
+                  {sg.isMatched ? `↔ ${sg.distance}px` : `${sg.distance}px`}
+                </span>
+              </div>
+            );
+          } else {
+            const top = Math.min(sg.y1, sg.y2);
+            const height = Math.abs(sg.y2 - sg.y1);
+            if (height < 4) return null;
+            return (
+              <div
+                key={`sg-v-${idx}`}
+                style={{ left: `${sg.x1}px`, top: `${top}px`, height: `${height}px` }}
+                className="absolute z-40 pointer-events-none flex items-center justify-center -translate-x-1/2"
+              >
+                <div
+                  className={`h-full w-0.5 relative ${
+                    sg.isMatched ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]' : 'bg-sky-500/80'
+                  }`}
+                >
+                  <span className={`absolute top-0 -left-1.5 h-0.5 w-3.5 ${sg.isMatched ? 'bg-rose-500' : 'bg-sky-500'}`} />
+                  <span className={`absolute bottom-0 -left-1.5 h-0.5 w-3.5 ${sg.isMatched ? 'bg-rose-500' : 'bg-sky-500'}`} />
+                </div>
+                <span
+                  className={`absolute left-3 px-1.5 py-0.5 rounded text-[10px] font-black font-mono text-white shadow-md whitespace-nowrap ${
+                    sg.isMatched ? 'bg-rose-500' : 'bg-sky-600'
+                  }`}
+                >
+                  {sg.isMatched ? `↕ ${sg.distance}px` : `${sg.distance}px`}
+                </span>
+              </div>
+            );
+          }
+        })}
+
+        {/* LIVE RESIZE DIMENSION / SHIFT-LOCK INDICATOR */}
+        {liveResize && (
+          <div
+            style={{
+              left: `${Math.min(CANVAS_DEFAULT_WIDTH - 160, liveResize.posX + liveResize.width / 2)}px`,
+              top: `${Math.max(8, liveResize.posY - 34)}px`
+            }}
+            className={`absolute -translate-x-1/2 z-50 px-2.5 py-1 rounded-full text-[10px] font-extrabold font-mono text-white shadow-lg pointer-events-none whitespace-nowrap ${
+              liveResize.aspectLocked ? 'bg-blue-600 ring-2 ring-cyan-300' : 'bg-slate-900/90'
+            }`}
+          >
+            {liveResize.aspectLocked ? '🔒 Proporsional • ' : ''}
+            {liveResize.width} × {liveResize.height}px
+          </div>
+        )}
+
+        {/* ============================================================= */}
+        {/* MARQUEE MULTI-SELECT BOX (KOTAK TRANSPARAN ALA CANVA)         */}
+        {/* ============================================================= */}
+        {marqueeBox && marqueeBox.width > 3 && marqueeBox.height > 3 && (
+          <div
+            style={{
+              left: `${marqueeBox.x}px`,
+              top: `${marqueeBox.y}px`,
+              width: `${marqueeBox.width}px`,
+              height: `${marqueeBox.height}px`
+            }}
+            className="absolute bg-blue-500/15 border-2 border-blue-500 rounded-xs pointer-events-none z-50"
+          />
+        )}
+
         {/* Render Setiap Elemen di Dalam Kanvas */}
         {canvas.elements.map((el) => {
-          const isSelected = selectedElementId === el.id;
+          const isSelected =
+            selectedElementIds.includes(el.id) || Boolean(marqueeBox?.previewIds.has(el.id));
+          const isSingleSelected =
+            selectedElementIds.length === 1 && selectedElementIds[0] === el.id;
+          const isDraggingThis = Boolean(liveDrag && liveDrag.ids.has(el.id));
+          const isResizingThis = Boolean(liveResize && liveResize.id === el.id);
+
+          const renderX = isResizingThis ? liveResize!.posX : el.posX;
+          const renderY = isResizingThis ? liveResize!.posY : el.posY;
+          const renderW = isResizingThis ? liveResize!.width : el.width;
+          const renderH = isResizingThis ? liveResize!.height : el.height;
+
           const { category, properties, color } = el;
 
           return (
@@ -607,7 +1377,6 @@ export default function AdvanceCanvasPage({
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectCanvas();
-                onSelectElement(el.id);
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation();
@@ -615,25 +1384,33 @@ export default function AdvanceCanvasPage({
                   setEditingTextId(el.id);
                 } else if (category === 'NAV') {
                   onOpenNavConfigModal();
-                } else if (category === 'PRODUCT' || category === 'IMAGE') {
+                } else if (category === 'PRODUCT') {
                   onTriggerImageUploadForElement(el.id);
                 }
               }}
               style={{
-                left: `${el.posX}px`,
-                top: `${el.posY}px`,
-                width: `${el.width}px`,
-                height: `${el.height}px`,
-                position: 'absolute'
+                left: `${renderX}px`,
+                top: `${renderY}px`,
+                width: `${renderW}px`,
+                height: `${Math.max(20, renderH)}px`,
+                position: 'absolute',
+                transform: isDraggingThis
+                  ? `translate3d(${liveDrag!.dx}px, ${liveDrag!.dy}px, 0)`
+                  : undefined,
+                willChange: isDraggingThis || isResizingThis ? 'transform' : undefined
               }}
-              className={`group/el cursor-move transition-shadow ${
-                isSelected
+              className={`group/el cursor-move ${
+                isDraggingThis || isResizingThis ? '' : 'transition-shadow'
+              } ${
+                recentlyAddedElementId === el.id
+                  ? 'animate-in fade-in zoom-in-95 duration-300 ring-2 ring-cyan-400 shadow-[0_0_24px_rgba(37,99,235,0.35)] z-30'
+                  : isSelected
                   ? 'ring-2 ring-blue-500 shadow-xl z-30'
                   : 'hover:ring-1 hover:ring-blue-400/60 z-10'
               }`}
             >
               {/* CANVA FLOATING MINI-ACTION PILL DI ATAS/BAWAH ELEMEN (AUTO-FLIP JIKA DI PUCUK ATAS KANVAS) */}
-              {isSelected && (() => {
+              {isSingleSelected && !isDraggingThis && (() => {
                 const isNearTop = el.posY < 48;
                 const isNearLeft = el.posX < 30;
                 const isNearRight = el.posX + el.width > (CANVAS_DEFAULT_WIDTH - 30);
@@ -696,9 +1473,14 @@ export default function AdvanceCanvasPage({
                 );
               })()}
 
-              {/* ========================================================= */}
-              {/* RENDER KATEGORI: TEKS (AC-TXT-01..03)                     */}
-              {/* ========================================================= */}
+              {/* Content Wrapper dengan Opasitas Universal */}
+              <div
+                className="w-full h-full"
+                style={{ opacity: properties.opacity !== undefined ? properties.opacity : 1 }}
+              >
+                {/* ========================================================= */}
+                {/* RENDER KATEGORI: TEKS (AC-TXT-01..03)                     */}
+                {/* ========================================================= */}
               {category === 'TEXT' && (
                 <div className="w-full h-full flex items-center justify-center p-1">
                   {editingTextId === el.id ? (
@@ -751,32 +1533,92 @@ export default function AdvanceCanvasPage({
               )}
 
               {/* ========================================================= */}
-              {/* RENDER KATEGORI: GAMBAR (AC-IMG-01..02)                   */}
+              {/* RENDER KATEGORI: SHAPE (AC-SHP-01 + MASKING SUPPORT)      */}
               {/* ========================================================= */}
-              {category === 'IMAGE' && (
-                <div
-                  className="w-full h-full relative overflow-hidden group/img"
-                  style={{ borderRadius: `${properties.borderRadius || 12}px` }}
-                >
-                  <img
-                    src={properties.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600'}
-                    alt="Elemen Gambar"
-                    className="w-full h-full"
-                    style={{ objectFit: properties.objectFit || 'cover' }}
-                  />
-                  {isSelected && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onTriggerImageUploadForElement(el.id);
-                      }}
-                      className="absolute inset-0 bg-slate-900/40 backdrop-blur-2xs opacity-0 hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition cursor-pointer"
-                    >
-                      <Upload className="w-4 h-4 mr-1.5" /> Klik Ganti Gambar
-                    </div>
-                  )}
-                </div>
-              )}
+              {category === 'SHAPE' && (() => {
+                const hasMaskLayers = properties.maskedLayers && properties.maskedLayers.length > 0;
+                const clipPathVal = hasMaskLayers
+                  ? getShapeClipPath(properties.shapeType, properties.borderRadius)
+                  : undefined;
+
+                return (
+                  <div className="w-full h-full relative pointer-events-none select-none">
+                    <AdvanceShapeRenderer
+                      shapeType={properties.shapeType}
+                      fillColor={color || '#2563eb'}
+                      borderColor={properties.borderColor}
+                      borderWidth={properties.borderWidth}
+                      borderStyle={properties.borderStyle}
+                      borderRadius={properties.borderRadius}
+                      opacity={1}
+                      shadow={properties.shadow}
+                    />
+                    {hasMaskLayers && (
+                      <div
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ clipPath: clipPathVal }}
+                      >
+                        {properties.maskedLayers!.map((layer) => (
+                          <div
+                            key={layer.id}
+                            style={{
+                              position: 'absolute',
+                              left: `${layer.posX}px`,
+                              top: `${layer.posY}px`,
+                              width: `${layer.width}px`,
+                              height: `${layer.height}px`,
+                              opacity: layer.properties.opacity !== undefined ? layer.properties.opacity : 1
+                            }}
+                          >
+                            {layer.category === 'IMAGE' ? (
+                              <img
+                                src={layer.properties.imageUrl || ''}
+                                alt="Masked Image"
+                                className="w-full h-full"
+                                style={{ objectFit: layer.properties.objectFit || 'cover' }}
+                              />
+                            ) : (
+                              <AdvanceShapeRenderer
+                                shapeType={layer.properties.shapeType}
+                                fillColor={layer.color || '#f59e0b'}
+                                borderColor={layer.properties.borderColor}
+                                borderWidth={layer.properties.borderWidth}
+                                borderStyle={layer.properties.borderStyle}
+                                borderRadius={layer.properties.borderRadius}
+                                opacity={1}
+                                shadow={layer.properties.shadow}
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* ========================================================= */}
+              {/* RENDER KATEGORI: GAMBAR (AC-IMG-01..02 + SHAPE MASKING)   */}
+              {/* ========================================================= */}
+              {category === 'IMAGE' && (() => {
+                const clipPathVal = getShapeClipPath(properties.maskShape, properties.borderRadius);
+                return (
+                  <div
+                    className="w-full h-full relative overflow-hidden group/img pointer-events-none select-none"
+                    style={{
+                      borderRadius: clipPathVal ? undefined : `${properties.borderRadius || 12}px`,
+                      clipPath: clipPathVal
+                    }}
+                  >
+                    <img
+                      src={properties.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600'}
+                      alt="Elemen Gambar"
+                      className="w-full h-full pointer-events-none select-none"
+                      style={{ objectFit: properties.objectFit || 'cover' }}
+                    />
+                  </div>
+                );
+              })()}
 
               {/* ========================================================= */}
               {/* RENDER KATEGORI: KARTU PRODUK (AC-PRD-01..04)             */}
@@ -999,9 +1841,43 @@ export default function AdvanceCanvasPage({
                       : 'rounded-xl'
                   }`}
                 >
-                  <span className="font-black text-sm tracking-tight">
-                    {properties.navBrand || 'Toko Saya'}
-                  </span>
+                  <div className="flex items-center gap-2.5">
+                    {properties.navLogoUrl ? (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTriggerImageUploadForElement(el.id);
+                        }}
+                        className="relative group/logo cursor-pointer flex items-center"
+                        title="Klik untuk mengganti Logo Perusahaan"
+                      >
+                        <img
+                          src={properties.navLogoUrl}
+                          alt={properties.navBrand || 'Logo Perusahaan'}
+                          className="h-9 max-w-[160px] object-contain rounded-md"
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTriggerImageUploadForElement(el.id);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-dashed border-blue-400/80 bg-blue-50/80 hover:bg-blue-100 text-blue-700 text-[11px] font-extrabold transition cursor-pointer"
+                        title="Klik untuk unggah gambar Logo Perusahaan Anda (PNG/JPG/SVG)"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Upload Logo</span>
+                      </button>
+                    )}
+
+                    {properties.navBrand && properties.navBrand.trim() !== '' && (
+                      <span className="font-black text-sm tracking-tight">
+                        {properties.navBrand}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center gap-4">
                     {properties.navItems?.map((item) => (
@@ -1026,11 +1902,12 @@ export default function AdvanceCanvasPage({
                   </div>
                 </div>
               )}
+              </div>
 
               {/* ========================================================= */}
               {/* RESIZE HANDLES (Section 4 Resize Item - White/Blue Canva) */}
               {/* ========================================================= */}
-              {isSelected && (
+              {isSingleSelected && !isDraggingThis && (
                 <>
                   {/* Top-Left Handle (NW) */}
                   <div
@@ -1063,7 +1940,7 @@ export default function AdvanceCanvasPage({
         })}
 
         {/* Empty Canvas Placeholder Guide */}
-        {canvas.elements.length === 0 && (
+        {canvas.elements.length === 0 && !(aiCursor?.isActive && aiCursor.targetCanvasId === canvas.id) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-slate-400 pointer-events-none">
             <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
               <Maximize2 className="w-7 h-7" />
@@ -1072,8 +1949,61 @@ export default function AdvanceCanvasPage({
               {canvas.title || `Kanvas ${canvas.pageIndex}`} Kosong Siap Didesain
             </h4>
             <p className="text-xs text-slate-400 mt-1 max-w-sm">
-              Gunakan panel palet di sisi kiri untuk menambahkan Teks, Unggah Gambar, Kartu Produk, Tombol, atau Navigasi.
+              Gunakan panel palet di sisi kiri atau perintahkan Asisten AI di sebelah kanan untuk membangun website secara otomatis!
             </p>
+          </div>
+        )}
+
+        {/* ============================================================= */}
+        {/* LIVE ANIMATED AI CURSOR (FIGMA / CANVA AI MULTIPLAYER STYLE)  */}
+        {/* ============================================================= */}
+        {aiCursor && aiCursor.isActive && aiCursor.targetCanvasId === canvas.id && (
+          <div
+            style={{
+              left: `${Math.min(CANVAS_DEFAULT_WIDTH - 40, Math.max(12, aiCursor.x))}px`,
+              top: `${Math.min((canvas.height || CANVAS_DEFAULT_HEIGHT) - 40, Math.max(12, aiCursor.y))}px`,
+              transition: 'left 320ms cubic-bezier(0.22, 1, 0.36, 1), top 320ms cubic-bezier(0.22, 1, 0.36, 1)'
+            }}
+            className="absolute z-50 pointer-events-none select-none"
+          >
+            {/* Glowing Click Ripple */}
+            {aiCursor.isClicking && (
+              <>
+                <span className="absolute -left-5 -top-5 w-10 h-10 rounded-full bg-blue-500/40 animate-ping" />
+                <span className="absolute -left-2.5 -top-2.5 w-5 h-5 rounded-full bg-cyan-400/60" />
+              </>
+            )}
+
+            {/* Glowing Pointer Cursor SVG */}
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              className={`drop-shadow-[0_6px_14px_rgba(37,99,235,0.65)] transition-transform duration-150 ${
+                aiCursor.isClicking ? 'scale-90' : 'scale-100'
+              }`}
+            >
+              <path
+                d="M4 3L20 10.5L12.5 13L9.5 20.5L4 3Z"
+                fill="#2563EB"
+                stroke="#FFFFFF"
+                strokeWidth="2"
+                strokeLinejoin="round"
+              />
+            </svg>
+
+            {/* Floating Live Action Tag */}
+            <div
+              className={`mt-0.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-600 to-cyan-500 text-white text-[11px] font-extrabold shadow-2xl border border-white/40 whitespace-nowrap flex items-center gap-1.5 ${
+                aiCursor.x > 680 ? '-translate-x-full -ml-2' : 'ml-5'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-spin" />
+              <span>NexaWeb AI</span>
+              <span className="opacity-60">•</span>
+              <span className="font-semibold text-blue-50">{aiCursor.label}</span>
+            </div>
           </div>
         )}
       </div>

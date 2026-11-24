@@ -15,6 +15,8 @@ import {
   CANVAS_DEFAULT_WIDTH,
   CANVAS_DEFAULT_HEIGHT
 } from '@/lib/advanceTypes';
+import AdvanceShapeRenderer from '@/components/advance/AdvanceShapeRenderer';
+import { getShapeClipPath, HEART_CLIP_PATH_D } from '@/lib/advanceMaskUtils';
 
 export interface AdvancePreviewModalProps {
   isOpen: boolean;
@@ -51,7 +53,7 @@ export default function AdvancePreviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 animate-in fade-in duration-150">
       {/* Top Bar Preview */}
       <div className="h-14 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between text-white shrink-0 z-20">
         <div className="flex items-center gap-3">
@@ -74,8 +76,15 @@ export default function AdvancePreviewModal({
         </button>
       </div>
 
-      {/* Viewport Website */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center gap-6 bg-slate-900/40">
+      {/* Viewport Website (Optimized 60fps Opaque Scroll Surface) */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center gap-6 bg-slate-900 will-change-scroll">
+        <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
+          <defs>
+            <clipPath id="nexa-clip-heart" clipPathUnits="objectBoundingBox">
+              <path d={HEART_CLIP_PATH_D} />
+            </clipPath>
+          </defs>
+        </svg>
         {canvases.map((canvas, cIdx) => (
           <div
             key={canvas.id}
@@ -86,7 +95,8 @@ export default function AdvancePreviewModal({
               backgroundColor: canvas.backgroundColor || '#ffffff',
               backgroundImage: canvas.backgroundImage ? `url(${canvas.backgroundImage})` : undefined,
               backgroundSize: 'cover',
-              backgroundPosition: 'center'
+              backgroundPosition: 'center',
+              contain: 'layout paint'
             }}
             className="relative shadow-2xl rounded-2xl overflow-hidden border border-slate-700/50 shrink-0"
           >
@@ -101,37 +111,118 @@ export default function AdvancePreviewModal({
                     top: `${el.posY}px`,
                     width: `${el.width}px`,
                     height: `${el.height}px`,
-                    position: 'absolute'
+                    position: 'absolute',
+                    opacity: properties.opacity !== undefined ? properties.opacity : 1
                   }}
                 >
-                  {/* TEXT */}
+                  {/* TEXT (Exact Left/Center/Right Alignment Match) */}
                   {category === 'TEXT' && (
                     <div
                       style={{
                         fontFamily: properties.font || 'Inter, sans-serif',
                         fontSize: `${properties.fontSize || 16}px`,
                         fontWeight: properties.fontWeight || 'normal',
+                        fontStyle: properties.fontStyle || 'normal',
+                        textDecoration: properties.textDecoration || 'none',
+                        textTransform: properties.textTransform || 'none',
                         textAlign: properties.textAlign || 'center',
+                        justifyContent:
+                          properties.textAlign === 'left'
+                            ? 'flex-start'
+                            : properties.textAlign === 'right'
+                            ? 'flex-end'
+                            : 'center',
                         color: color || '#000000'
                       }}
-                      className="w-full h-full flex items-center justify-center break-words"
+                      className="w-full h-full flex items-center break-words leading-snug"
                     >
-                      {properties.text}
+                      <span className="w-full">{properties.text}</span>
                     </div>
                   )}
 
-                  {/* IMAGE */}
-                  {category === 'IMAGE' && (
-                    <img
-                      src={properties.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600'}
-                      alt="Gambar"
-                      className="w-full h-full"
-                      style={{
-                        objectFit: properties.objectFit || 'cover',
-                        borderRadius: `${properties.borderRadius || 12}px`
-                      }}
-                    />
-                  )}
+                  {/* SHAPE + MASKED LAYERS */}
+                  {category === 'SHAPE' && (() => {
+                    const hasMaskLayers = properties.maskedLayers && properties.maskedLayers.length > 0;
+                    const clipPathVal = hasMaskLayers
+                      ? getShapeClipPath(properties.shapeType, properties.borderRadius)
+                      : undefined;
+
+                    return (
+                      <div className="w-full h-full relative">
+                        <AdvanceShapeRenderer
+                          shapeType={properties.shapeType}
+                          fillColor={color || '#2563eb'}
+                          borderColor={properties.borderColor}
+                          borderWidth={properties.borderWidth}
+                          borderStyle={properties.borderStyle}
+                          borderRadius={properties.borderRadius}
+                          opacity={1}
+                          shadow={properties.shadow}
+                        />
+                        {hasMaskLayers && (
+                          <div
+                            className="absolute inset-0 overflow-hidden"
+                            style={{ clipPath: clipPathVal }}
+                          >
+                            {properties.maskedLayers!.map((layer) => (
+                              <div
+                                key={layer.id}
+                                style={{
+                                  position: 'absolute',
+                                  left: `${layer.posX}px`,
+                                  top: `${layer.posY}px`,
+                                  width: `${layer.width}px`,
+                                  height: `${layer.height}px`,
+                                  opacity: layer.properties.opacity !== undefined ? layer.properties.opacity : 1
+                                }}
+                              >
+                                {layer.category === 'IMAGE' ? (
+                                  <img
+                                    src={layer.properties.imageUrl || ''}
+                                    alt="Masked Image"
+                                    className="w-full h-full"
+                                    style={{ objectFit: layer.properties.objectFit || 'cover' }}
+                                  />
+                                ) : (
+                                  <AdvanceShapeRenderer
+                                    shapeType={layer.properties.shapeType}
+                                    fillColor={layer.color || '#f59e0b'}
+                                    borderColor={layer.properties.borderColor}
+                                    borderWidth={layer.properties.borderWidth}
+                                    borderStyle={layer.properties.borderStyle}
+                                    borderRadius={layer.properties.borderRadius}
+                                    opacity={1}
+                                    shadow={layer.properties.shadow}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* IMAGE + SHAPE MASK */}
+                  {category === 'IMAGE' && (() => {
+                    const clipPathVal = getShapeClipPath(properties.maskShape, properties.borderRadius);
+                    return (
+                      <div
+                        className="w-full h-full overflow-hidden"
+                        style={{
+                          borderRadius: clipPathVal ? undefined : `${properties.borderRadius || 12}px`,
+                          clipPath: clipPathVal
+                        }}
+                      >
+                        <img
+                          src={properties.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600'}
+                          alt="Gambar"
+                          className="w-full h-full"
+                          style={{ objectFit: properties.objectFit || 'cover' }}
+                        />
+                      </div>
+                    );
+                  })()}
 
                   {/* PRODUCT */}
                   {category === 'PRODUCT' && properties.cardData && (
@@ -218,9 +309,20 @@ export default function AdvancePreviewModal({
                           : 'rounded-xl'
                       }`}
                     >
-                      <span className="font-black text-sm tracking-tight">
-                        {properties.navBrand || 'Toko Saya'}
-                      </span>
+                      <div className="flex items-center gap-2.5">
+                        {properties.navLogoUrl && (
+                          <img
+                            src={properties.navLogoUrl}
+                            alt={properties.navBrand || 'Logo'}
+                            className="h-9 max-w-[160px] object-contain rounded-md"
+                          />
+                        )}
+                        {(properties.navBrand || !properties.navLogoUrl) && (
+                          <span className="font-black text-sm tracking-tight">
+                            {properties.navBrand || 'Logo'}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-4">
                         {properties.navItems?.map((item) => (
                           <button

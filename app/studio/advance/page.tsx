@@ -26,7 +26,9 @@ import {
   createDefaultCanvas,
   CANVAS_DEFAULT_WIDTH,
   CANVAS_DEFAULT_HEIGHT,
-  NavItemData
+  NavItemData,
+  AdvanceAiPlan,
+  AiCursorState
 } from '@/lib/advanceTypes';
 import AdvancePaletteSidebar from '@/components/advance/AdvancePaletteSidebar';
 import AdvanceContextualToolbar from '@/components/advance/AdvanceContextualToolbar';
@@ -48,7 +50,11 @@ export default function AdvanceStudioPage() {
     createDefaultCanvas(1)
   ]);
   const [activeCanvasId, setActiveCanvasId] = useState<string>(canvases[0].id);
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
+  const selectedElementId = selectedElementIds.length === 1 ? selectedElementIds[0] : null;
+  const setSelectedElementId = useCallback((id: string | null) => {
+    setSelectedElementIds(id ? [id] : []);
+  }, []);
 
   // AC-ADV-06: History Stack (In-Memory State: List<List<AdvanceCanvas>>)
   const [history, setHistory] = useState<HistoryStack>({
@@ -64,6 +70,11 @@ export default function AdvanceStudioPage() {
   const [isAutoFit, setIsAutoFit] = useState<boolean>(true);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isDeploying, setIsDeploying] = useState(false);
+
+  // Live Animated AI Cursor States
+  const [aiCursor, setAiCursor] = useState<AiCursorState | null>(null);
+  const [recentlyAddedElementId, setRecentlyAddedElementId] = useState<string | null>(null);
+  const skipAiAnimRef = useRef<boolean>(false);
 
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
@@ -97,15 +108,18 @@ export default function AdvanceStudioPage() {
   const activeCanvas =
     canvases.find((c) => c.id === activeCanvasId) || canvases[0];
 
-  // Find selected element object
-  let selectedElement: CanvasElement | null = null;
-  for (const c of canvases) {
-    const el = c.elements.find((e) => e.id === selectedElementId);
-    if (el) {
-      selectedElement = el;
-      break;
+  // Find selected elements (single or multi-select)
+  const selectedElements: CanvasElement[] = [];
+  if (selectedElementIds.length > 0) {
+    const idSet = new Set(selectedElementIds);
+    for (const c of canvases) {
+      for (const el of c.elements) {
+        if (idSet.has(el.id)) selectedElements.push(el);
+      }
     }
   }
+  const selectedElement: CanvasElement | null =
+    selectedElements.length === 1 ? selectedElements[0] : null;
 
   // -------------------------------------------------------------------------
   // Helper: Commit State to History Stack for Undo/Redo (AC-ADV-06)
@@ -178,24 +192,55 @@ export default function AdvanceStudioPage() {
         handleRedo();
       }
       // Delete: Delete or Backspace
-      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId) {
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementIds.length > 0) {
         e.preventDefault();
         handleDeleteElement();
       }
       // Duplicate: Ctrl+D
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedElementId) {
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedElementIds.length > 0) {
         e.preventDefault();
         handleDuplicateElement();
       }
       // Deselect: Escape
       else if (e.key === 'Escape') {
-        setSelectedElementId(null);
+        setSelectedElementIds([]);
+      }
+      // Precision Keyboard Nudging: Arrow Keys (1px normal, 10px with Shift)
+      else if (
+        selectedElementIds.length > 0 &&
+        (e.key === 'ArrowUp' ||
+          e.key === 'ArrowDown' ||
+          e.key === 'ArrowLeft' ||
+          e.key === 'ArrowRight')
+      ) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+        const idSet = new Set(selectedElementIds);
+
+        setCanvases((prev) =>
+          prev.map((c) => {
+            const cHeight = c.height || CANVAS_DEFAULT_HEIGHT;
+            let changed = false;
+            const nextEls = c.elements.map((el) => {
+              if (!idSet.has(el.id)) return el;
+              changed = true;
+              return {
+                ...el,
+                posX: Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 40, el.posX + dx)),
+                posY: Math.max(0, Math.min(cHeight - 24, el.posY + dy))
+              };
+            });
+            return changed ? { ...c, elements: nextEls } : c;
+          })
+        );
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, selectedElementId]);
+  }, [handleUndo, handleRedo, selectedElementIds]);
 
   // -------------------------------------------------------------------------
   // Element Actions
@@ -219,54 +264,69 @@ export default function AdvanceStudioPage() {
     setSelectedElementId(newId);
   };
 
-  // Update element coordinates (AC-ADV-03 & Section 4 Free Positioning)
-  const handleUpdateElementPosition = (elementId: string, posX: number, posY: number) => {
-    setCanvases((prev) =>
-      prev.map((c) => ({
-        ...c,
-        elements: c.elements.map((el) =>
-          el.id === elementId ? { ...el, posX, posY } : el
-        )
-      }))
-    );
-  };
+  // Batch commit positions (dipanggil 1x saat mouseup untuk performa 60fps!)
+  const handleBatchUpdatePositions = useCallback(
+    (updates: { id: string; posX: number; posY: number }[]) => {
+      if (updates.length === 0) return;
+      const map = new Map(updates.map((u) => [u.id, u]));
+      setCanvases((prev) =>
+        prev.map((c) => {
+          let changed = false;
+          const nextEls = c.elements.map((el) => {
+            const u = map.get(el.id);
+            if (u && (el.posX !== u.posX || el.posY !== u.posY)) {
+              changed = true;
+              return { ...el, posX: u.posX, posY: u.posY };
+            }
+            return el;
+          });
+          return changed ? { ...c, elements: nextEls } : c;
+        })
+      );
+    },
+    []
+  );
 
   // Update element dimensions (Section 4 Resize Item)
-  const handleUpdateElementSize = (
-    elementId: string,
-    width: number,
-    height: number,
-    posX?: number,
-    posY?: number
-  ) => {
-    setCanvases((prev) =>
-      prev.map((c) => ({
-        ...c,
-        elements: c.elements.map((el) => {
-          if (el.id === elementId) {
-            return {
-              ...el,
-              width,
-              height,
-              posX: posX !== undefined ? posX : el.posX,
-              posY: posY !== undefined ? posY : el.posY
-            };
-          }
-          return el;
-        })
-      }))
-    );
-  };
+  const handleUpdateElementSize = useCallback(
+    (
+      elementId: string,
+      width: number,
+      height: number,
+      posX?: number,
+      posY?: number
+    ) => {
+      setCanvases((prev) =>
+        prev.map((c) => ({
+          ...c,
+          elements: c.elements.map((el) => {
+            if (el.id === elementId) {
+              return {
+                ...el,
+                width,
+                height,
+                posX: posX !== undefined ? posX : el.posX,
+                posY: posY !== undefined ? posY : el.posY
+              };
+            }
+            return el;
+          })
+        }))
+      );
+    },
+    []
+  );
 
-  // Update element properties
+  // Update element properties (supports single & multi-select bulk editing!)
   const handleUpdateElementProperties = (properties: Partial<CanvasElement['properties']>) => {
-    if (!selectedElementId) return;
+    if (selectedElementIds.length === 0) return;
     pushToHistory(canvases);
+    const idSet = new Set(selectedElementIds);
     setCanvases((prev) =>
       prev.map((c) => ({
         ...c,
         elements: c.elements.map((el) =>
-          el.id === selectedElementId
+          idSet.has(el.id)
             ? { ...el, properties: { ...el.properties, ...properties } }
             : el
         )
@@ -274,14 +334,15 @@ export default function AdvanceStudioPage() {
     );
   };
 
-  // Update element color
+  // Update element color (supports single & multi-select bulk editing!)
   const handleUpdateElementColor = (color: string) => {
-    if (!selectedElementId) return;
+    if (selectedElementIds.length === 0) return;
+    const idSet = new Set(selectedElementIds);
     setCanvases((prev) =>
       prev.map((c) => ({
         ...c,
         elements: c.elements.map((el) =>
-          el.id === selectedElementId ? { ...el, color } : el
+          idSet.has(el.id) ? { ...el, color } : el
         )
       }))
     );
@@ -330,68 +391,75 @@ export default function AdvanceStudioPage() {
     );
   };
 
-  // Delete element
+  // Delete element(s) (single or multi-select)
   const handleDeleteElement = () => {
-    if (!selectedElementId) return;
+    if (selectedElementIds.length === 0) return;
     pushToHistory(canvases);
+    const idSet = new Set(selectedElementIds);
     setCanvases((prev) =>
       prev.map((c) => ({
         ...c,
-        elements: c.elements.filter((el) => el.id !== selectedElementId)
+        elements: c.elements.filter((el) => !idSet.has(el.id))
       }))
     );
-    setSelectedElementId(null);
+    setSelectedElementIds([]);
   };
 
-  // Duplicate element
+  // Duplicate element(s) (single or multi-select)
   const handleDuplicateElement = () => {
-    if (!selectedElement) return;
+    if (selectedElements.length === 0) return;
     pushToHistory(canvases);
-    const newId = `el-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const cloned: CanvasElement = {
-      ...JSON.parse(JSON.stringify(selectedElement)),
-      id: newId,
-      posX: selectedElement.posX + 25,
-      posY: selectedElement.posY + 25
-    };
-    setCanvases((prev) =>
-      prev.map((c) =>
-        c.elements.some((el) => el.id === selectedElementId)
-          ? { ...c, elements: [...c.elements, cloned] }
-          : c
-      )
-    );
-    setSelectedElementId(newId);
-  };
+    const idSet = new Set(selectedElementIds);
+    const newIds: string[] = [];
 
-  // Bring forward in z-order
-  const handleBringForward = () => {
-    if (!selectedElementId) return;
-    pushToHistory(canvases);
     setCanvases((prev) =>
       prev.map((c) => {
-        const idx = c.elements.findIndex((el) => el.id === selectedElementId);
-        if (idx === -1 || idx === c.elements.length - 1) return c;
-        const newEls = [...c.elements];
-        const [moved] = newEls.splice(idx, 1);
-        newEls.push(moved);
-        return { ...c, elements: newEls };
+        const toClone = c.elements.filter((el) => idSet.has(el.id));
+        if (toClone.length === 0) return c;
+        const clones: CanvasElement[] = toClone.map((orig, idx) => {
+          const newId = `el-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+          newIds.push(newId);
+          return {
+            ...JSON.parse(JSON.stringify(orig)),
+            id: newId,
+            posX: orig.posX + 25,
+            posY: orig.posY + 25
+          };
+        });
+        return { ...c, elements: [...c.elements, ...clones] };
+      })
+    );
+    setTimeout(() => {
+      if (newIds.length > 0) setSelectedElementIds(newIds);
+    }, 0);
+  };
+
+  // Bring forward in z-order (single or multi-select)
+  const handleBringForward = () => {
+    if (selectedElementIds.length === 0) return;
+    pushToHistory(canvases);
+    const idSet = new Set(selectedElementIds);
+    setCanvases((prev) =>
+      prev.map((c) => {
+        const selected = c.elements.filter((el) => idSet.has(el.id));
+        if (selected.length === 0) return c;
+        const others = c.elements.filter((el) => !idSet.has(el.id));
+        return { ...c, elements: [...others, ...selected] };
       })
     );
   };
 
-  // Send backward in z-order
+  // Send backward in z-order (single or multi-select)
   const handleSendBackward = () => {
-    if (!selectedElementId) return;
+    if (selectedElementIds.length === 0) return;
     pushToHistory(canvases);
+    const idSet = new Set(selectedElementIds);
     setCanvases((prev) =>
       prev.map((c) => {
-        const idx = c.elements.findIndex((el) => el.id === selectedElementId);
-        if (idx <= 0) return c;
-        const newEls = [...c.elements];
-        const [moved] = newEls.splice(idx, 1);
-        newEls.unshift(moved);
-        return { ...c, elements: newEls };
+        const selected = c.elements.filter((el) => idSet.has(el.id));
+        if (selected.length === 0) return c;
+        const others = c.elements.filter((el) => !idSet.has(el.id));
+        return { ...c, elements: [...selected, ...others] };
       })
     );
   };
@@ -487,6 +555,8 @@ export default function AdvanceStudioPage() {
               if (el.id === targetElId) {
                 if (el.category === 'IMAGE') {
                   return { ...el, properties: { ...el.properties, imageUrl: url } };
+                } else if (el.category === 'NAV') {
+                  return { ...el, properties: { ...el.properties, navLogoUrl: url } };
                 } else if (el.category === 'PRODUCT' && el.properties.cardData) {
                   return {
                     ...el,
@@ -506,6 +576,376 @@ export default function AdvanceStudioPage() {
     reader.readAsDataURL(file);
     if (elementUploadInputRef.current) elementUploadInputRef.current.value = '';
     pendingUploadTargetRef.current = null;
+  };
+
+  // -------------------------------------------------------------------------
+  // Masking Actions: Mask 2 Overlapping Shapes / Image into Shape & Unmask
+  // -------------------------------------------------------------------------
+  const handleMaskWithElement = (targetElementId: string, sourceElementIdOverride?: string) => {
+    const firstId = sourceElementIdOverride || selectedElementId || selectedElementIds[0];
+    if (!firstId) return;
+
+    const currentCanvas = canvases.find((c) =>
+      c.elements.some((el) => el.id === firstId)
+    );
+    if (!currentCanvas) return;
+
+    const selectedIdx = currentCanvas.elements.findIndex((el) => el.id === firstId);
+    const targetIdx = currentCanvas.elements.findIndex((el) => el.id === targetElementId);
+    if (selectedIdx === -1 || targetIdx === -1 || selectedIdx === targetIdx) return;
+
+    const elSelected = currentCanvas.elements[selectedIdx];
+    const elTarget = currentCanvas.elements[targetIdx];
+
+    // Determine which element is the Mask Base (must be SHAPE) and which is the Masked Content
+    let baseEl: CanvasElement;
+    let contentEl: CanvasElement;
+
+    if (elSelected.category === 'IMAGE' && elTarget.category === 'SHAPE') {
+      baseEl = elTarget;
+      contentEl = elSelected;
+    } else if (elSelected.category === 'SHAPE' && elTarget.category === 'IMAGE') {
+      baseEl = elSelected;
+      contentEl = elTarget;
+    } else {
+      // Both are SHAPE: lower z-order shape acts as Mask Base, upper shape is clipped inside it
+      if (selectedIdx < targetIdx) {
+        baseEl = elSelected;
+        contentEl = elTarget;
+      } else {
+        baseEl = elTarget;
+        contentEl = elSelected;
+      }
+    }
+
+    pushToHistory(canvases);
+
+    // Compute content's relative position inside base mask frame
+    const relativeLayer: CanvasElement = {
+      ...contentEl,
+      posX: Math.round(contentEl.posX - baseEl.posX),
+      posY: Math.round(contentEl.posY - baseEl.posY)
+    };
+
+    const existingLayers = baseEl.properties.maskedLayers || [];
+
+    setCanvases((prev) =>
+      prev.map((c) => {
+        if (c.id !== currentCanvas.id) return c;
+        return {
+          ...c,
+          elements: c.elements
+            .filter((el) => el.id !== contentEl.id)
+            .map((el) =>
+              el.id === baseEl.id
+                ? {
+                    ...el,
+                    properties: {
+                      ...el.properties,
+                      maskedLayers: [...existingLayers, relativeLayer]
+                    }
+                  }
+                : el
+            )
+        };
+      })
+    );
+
+    setSelectedElementId(baseEl.id);
+  };
+
+  const handleUnmaskElement = () => {
+    if (!selectedElementId) return;
+
+    const currentCanvas = canvases.find((c) =>
+      c.elements.some((el) => el.id === selectedElementId)
+    );
+    if (!currentCanvas) return;
+
+    const baseEl = currentCanvas.elements.find((el) => el.id === selectedElementId);
+    if (!baseEl || !baseEl.properties.maskedLayers || baseEl.properties.maskedLayers.length === 0) {
+      return;
+    }
+
+    pushToHistory(canvases);
+
+    // Restore masked layers back to independent elements at world canvas coordinates
+    const restoredElements: CanvasElement[] = baseEl.properties.maskedLayers.map((layer) => ({
+      ...layer,
+      id: `el-unmask-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      posX: Math.max(0, Math.round(baseEl.posX + layer.posX)),
+      posY: Math.max(0, Math.round(baseEl.posY + layer.posY))
+    }));
+
+    setCanvases((prev) =>
+      prev.map((c) => {
+        if (c.id !== currentCanvas.id) return c;
+        return {
+          ...c,
+          elements: [
+            ...c.elements.map((el) =>
+              el.id === baseEl.id
+                ? {
+                    ...el,
+                    properties: {
+                      ...el.properties,
+                      maskedLayers: []
+                    }
+                  }
+                : el
+            ),
+            ...restoredElements
+          ]
+        };
+      })
+    );
+  };
+
+  // -------------------------------------------------------------------------
+  // Overpowered AI Plan Executor with Live Animated AI Cursor
+  // -------------------------------------------------------------------------
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const handleExecuteAiPlan = async (plan: AdvanceAiPlan) => {
+    if (!plan.actions || plan.actions.length === 0) return;
+
+    // Simpan snapshot ke Undo Stack sebelum AI mulai bekerja
+    pushToHistory(canvases);
+    setSelectedElementId(null);
+    skipAiAnimRef.current = false;
+
+    // Deep clone working canvases agar sinkron di setiap langkah async
+    let workingCanvases: AdvanceCanvas[] = JSON.parse(JSON.stringify(canvases));
+    let currentTargetCanvasId = activeCanvas.id;
+
+    // Pre-generate real canvas IDs untuk setiap canvasKey agar link Navbar & tombol CTA langsung tersambung
+    const baseTs = Date.now();
+    const canvasKeyMap: Record<string, string> = {};
+    let plannedPageIdx = 1;
+
+    const hasReset = plan.actions.some((a) => a.type === 'RESET_CANVASES');
+    if (hasReset) {
+      const heroId = `canvas-ai-${baseTs}-1`;
+      canvasKeyMap['hero'] = heroId;
+      plannedPageIdx = 2;
+    } else {
+      canvasKeyMap['hero'] = workingCanvases[0]?.id || activeCanvas.id;
+      plannedPageIdx = workingCanvases.length + 1;
+    }
+
+    for (const act of plan.actions) {
+      if (act.type === 'CREATE_CANVAS') {
+        canvasKeyMap[act.canvasKey] = `canvas-ai-${baseTs}-${plannedPageIdx}`;
+        plannedPageIdx += 1;
+      }
+    }
+
+    const resolveKeyRef = (val?: string): string | undefined => {
+      if (!val) return val;
+      if (val.startsWith('__KEY__:')) {
+        const key = val.replace('__KEY__:', '');
+        return canvasKeyMap[key] || currentTargetCanvasId;
+      }
+      return val;
+    };
+
+    const totalSteps = plan.actions.length;
+
+    for (let i = 0; i < totalSteps; i++) {
+      const action = plan.actions[i];
+      const stepNum = i + 1;
+
+      if (action.type === 'RESET_CANVASES') {
+        const heroId = canvasKeyMap['hero'];
+        workingCanvases = [
+          {
+            id: heroId,
+            pageIndex: 1,
+            title: action.firstCanvasTitle || 'Beranda',
+            backgroundColor: action.firstCanvasBg || '#ffffff',
+            backgroundImage: '',
+            height: action.firstCanvasHeight || CANVAS_DEFAULT_HEIGHT,
+            elements: []
+          }
+        ];
+        currentTargetCanvasId = heroId;
+        setCanvases([...workingCanvases]);
+        setActiveCanvasId(heroId);
+
+        if (!skipAiAnimRef.current) {
+          setAiCursor({
+            isActive: true,
+            targetCanvasId: heroId,
+            x: 500,
+            y: 120,
+            label: action.label,
+            isClicking: true,
+            currentStep: stepNum,
+            totalSteps
+          });
+          setTimeout(() => {
+            document.getElementById(heroId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 50);
+          await sleep(340);
+        }
+      } else if (action.type === 'CREATE_CANVAS') {
+        const newId = canvasKeyMap[action.canvasKey] || `canvas-ai-${Date.now()}-${workingCanvases.length + 1}`;
+        const newCanvas: AdvanceCanvas = {
+          id: newId,
+          pageIndex: workingCanvases.length + 1,
+          title: action.title,
+          backgroundColor: action.backgroundColor || '#ffffff',
+          backgroundImage: '',
+          height: action.height || CANVAS_DEFAULT_HEIGHT,
+          elements: []
+        };
+        workingCanvases = [...workingCanvases, newCanvas];
+        currentTargetCanvasId = newId;
+        setCanvases([...workingCanvases]);
+        setActiveCanvasId(newId);
+
+        if (!skipAiAnimRef.current) {
+          setAiCursor({
+            isActive: true,
+            targetCanvasId: newId,
+            x: 500,
+            y: 110,
+            label: action.label,
+            isClicking: true,
+            currentStep: stepNum,
+            totalSteps
+          });
+          setTimeout(() => {
+            document.getElementById(newId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 60);
+          await sleep(420);
+        }
+      } else if (action.type === 'SET_CANVAS_STYLE') {
+        const targetId = action.canvasKey ? canvasKeyMap[action.canvasKey] || currentTargetCanvasId : currentTargetCanvasId;
+        if (!skipAiAnimRef.current) {
+          setAiCursor({
+            isActive: true,
+            targetCanvasId: targetId,
+            x: 500,
+            y: 90,
+            label: action.label,
+            isClicking: false,
+            currentStep: stepNum,
+            totalSteps
+          });
+          await sleep(220);
+          setAiCursor((prev) => (prev ? { ...prev, isClicking: true } : prev));
+        }
+
+        workingCanvases = workingCanvases.map((c) =>
+          c.id === targetId
+            ? {
+                ...c,
+                title: action.title ?? c.title,
+                backgroundColor: action.backgroundColor ?? c.backgroundColor,
+                backgroundImage: action.backgroundImage ?? c.backgroundImage,
+                height: action.height ?? c.height
+              }
+            : c
+        );
+        setCanvases([...workingCanvases]);
+        if (!skipAiAnimRef.current) await sleep(180);
+      } else if (action.type === 'CLEAR_CANVAS') {
+        const targetId = action.canvasKey ? canvasKeyMap[action.canvasKey] || currentTargetCanvasId : currentTargetCanvasId;
+        workingCanvases = workingCanvases.map((c) =>
+          c.id === targetId ? { ...c, elements: [] } : c
+        );
+        setCanvases([...workingCanvases]);
+        if (!skipAiAnimRef.current) await sleep(200);
+      } else if (action.type === 'UPDATE_ALL_TEXT_COLOR') {
+        const targetId = action.canvasKey ? canvasKeyMap[action.canvasKey] || currentTargetCanvasId : currentTargetCanvasId;
+        workingCanvases = workingCanvases.map((c) =>
+          c.id === targetId
+            ? {
+                ...c,
+                elements: c.elements.map((el) =>
+                  el.category === 'TEXT' ? { ...el, color: action.color } : el
+                )
+              }
+            : c
+        );
+        setCanvases([...workingCanvases]);
+        if (!skipAiAnimRef.current) await sleep(160);
+      } else if (action.type === 'ADD_ELEMENT') {
+        const targetId = action.canvasKey ? canvasKeyMap[action.canvasKey] || currentTargetCanvasId : currentTargetCanvasId;
+        currentTargetCanvasId = targetId;
+
+        // Resolve logical __KEY__ links inside Button or Nav elements
+        const rawEl = action.element;
+        const resolvedProps = { ...rawEl.properties };
+        if (resolvedProps.targetCanvasId) {
+          resolvedProps.targetCanvasId = resolveKeyRef(resolvedProps.targetCanvasId);
+        }
+        if (resolvedProps.navItems && Array.isArray(resolvedProps.navItems)) {
+          resolvedProps.navItems = resolvedProps.navItems.map((item) => ({
+            ...item,
+            targetCanvasId: resolveKeyRef(item.targetCanvasId)
+          }));
+        }
+
+        const newElId = `el-ai-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 5)}`;
+        const newElement: CanvasElement = {
+          ...rawEl,
+          id: newElId,
+          properties: resolvedProps
+        };
+
+        const cursorX = Math.round(newElement.posX + newElement.width / 2);
+        const cursorY = Math.round(newElement.posY + Math.min(newElement.height / 2, 120));
+
+        if (!skipAiAnimRef.current) {
+          // 1. Kursor meluncur menuju koordinat elemen
+          setAiCursor({
+            isActive: true,
+            targetCanvasId: targetId,
+            x: cursorX,
+            y: cursorY,
+            label: action.label,
+            isClicking: false,
+            currentStep: stepNum,
+            totalSteps
+          });
+          await sleep(250);
+
+          // 2. Kursor melakukan klik (efek ripple biru)
+          setAiCursor((prev) => (prev ? { ...prev, isClicking: true } : prev));
+        }
+
+        // 3. Elemen langsung muncul di kanvas
+        workingCanvases = workingCanvases.map((c) =>
+          c.id === targetId ? { ...c, elements: [...c.elements, newElement] } : c
+        );
+        setCanvases([...workingCanvases]);
+        setActiveCanvasId(targetId);
+
+        if (!skipAiAnimRef.current) {
+          setRecentlyAddedElementId(newElId);
+          await sleep(170);
+        }
+      }
+    }
+
+    // Selesai merancang!
+    setAiCursor(null);
+    setTimeout(() => setRecentlyAddedElementId(null), 500);
+
+    // Scroll kembali ke kanvas pertama jika membangun website lengkap agar user melihat dari Hero
+    if (plan.isFullBuild && workingCanvases[0]) {
+      setActiveCanvasId(workingCanvases[0].id);
+      setTimeout(() => {
+        document.getElementById(workingCanvases[0].id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+      confetti({
+        particleCount: 85,
+        spread: 65,
+        origin: { y: 0.65 }
+      });
+    }
   };
 
   // Deploy / Export Website ZIP
@@ -684,6 +1124,7 @@ export default function AdvanceStudioPage() {
       {/* --------------------------------------------------------------------- */}
       <AdvanceContextualToolbar
         selectedElement={selectedElement}
+        selectedElements={selectedElements}
         activeCanvas={activeCanvas}
         allCanvases={canvases}
         onUpdateElementProperties={handleUpdateElementProperties}
@@ -693,6 +1134,8 @@ export default function AdvanceStudioPage() {
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
         onOpenNavConfigModal={() => setIsNavConfigOpen(true)}
+        onMaskWithElement={handleMaskWithElement}
+        onUnmaskElement={handleUnmaskElement}
       />
 
       {/* --------------------------------------------------------------------- */}
@@ -738,11 +1181,14 @@ export default function AdvanceStudioPage() {
                   canvas={c}
                   isActive={c.id === activeCanvas.id}
                   canDelete={canvases.length > 1}
-                  selectedElementId={selectedElementId}
+                  zoomLevel={zoomLevel}
+                  selectedElementIds={selectedElementIds}
                   allCanvases={canvases}
+                  aiCursor={aiCursor}
+                  recentlyAddedElementId={recentlyAddedElementId}
                   onSelectCanvas={() => setActiveCanvasId(c.id)}
-                  onSelectElement={setSelectedElementId}
-                  onUpdateElementPosition={handleUpdateElementPosition}
+                  onSelectElements={setSelectedElementIds}
+                  onBatchUpdatePositions={handleBatchUpdatePositions}
                   onUpdateElementSize={handleUpdateElementSize}
                   onUpdateElementText={handleUpdateElementText}
                   onUpdateProductCardText={handleUpdateProductCardText}
@@ -773,15 +1219,17 @@ export default function AdvanceStudioPage() {
           </div>
         </main>
 
-        {/* AC-ADV-05: Asisten AI Kanan (Collapsible Gemini Flash) */}
+        {/* AC-ADV-05: Asisten AI Kanan (Overpowered NexaWeb AI Architect) */}
         <AdvanceAiCopilot
           isOpen={isAiOpen}
           onClose={() => setIsAiOpen(false)}
           activeCanvas={activeCanvas}
           allCanvases={canvases}
-          onAddElement={handleAddElement}
-          onUpdateCanvasBackground={handleUpdateCanvasBackground}
-          onAddNewCanvas={handleAddNewCanvas}
+          aiCursor={aiCursor}
+          onExecuteAiPlan={handleExecuteAiPlan}
+          onSkipAiAnimation={() => {
+            skipAiAnimRef.current = true;
+          }}
         />
       </div>
 
