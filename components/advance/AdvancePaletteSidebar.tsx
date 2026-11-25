@@ -170,30 +170,65 @@ export default function AdvancePaletteSidebar({
     });
   };
 
-  // 3. Product Card Presets (AC-PRD-01..03)
-  const handleAddProductCard = (variant: 'modern' | 'minimal' | 'badge' | 'warm') => {
-    const width = 320;
-    const height = 400;
+  // 3. Product Card Templates (5 Visually Distinct Layouts & Styles)
+  const handleAddProductCard = (variant: 'modern' | 'badge' | 'warm' | 'minimal' | 'dark') => {
+    const isHorizontal = variant === 'warm';
+    const width = isHorizontal ? 470 : 310;
+    const height = isHorizontal ? 205 : 395;
     const { posX, posY } = getCenterCoords(width, height);
 
-    const defaultImages = [
-      'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&auto=format&fit=crop&q=80',
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80'
-    ];
-    const chosenImg = defaultImages[Math.floor(Math.random() * defaultImages.length)];
-
-    let cardBg = '#ffffff';
-    let btnColor = '#2563eb';
-
-    if (variant === 'badge') {
-      btnColor = '#059669';
-    } else if (variant === 'warm') {
-      cardBg = '#fffbeb';
-      btnColor = '#d97706';
-    } else if (variant === 'minimal') {
-      btnColor = '#0f172a';
-    }
+    const presets = {
+      modern: {
+        cardBg: '#ffffff',
+        btnColor: '#2563eb',
+        title: 'Paket Spesial Nusantara',
+        description: 'Cita rasa rempah istimewa dibuat higienis dan segar setiap hari.',
+        price: 'Rp 28.000',
+        buttonText: 'Pesan Sekarang',
+        badgeText: '',
+        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80'
+      },
+      badge: {
+        cardBg: '#ffffff',
+        btnColor: '#059669',
+        title: 'Salad Bowl Organik',
+        description: 'Sayuran organik segar dengan saus wijen sangrai favorit pelanggan.',
+        price: 'Rp 32.000',
+        buttonText: 'Order Menu Ini',
+        badgeText: '★ Paling Laris',
+        image: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&auto=format&fit=crop&q=80'
+      },
+      warm: {
+        cardBg: '#fffbeb',
+        btnColor: '#b45309',
+        title: 'Artisan Croissant & Latte',
+        description: 'Dipanggang hangat setiap pagi dengan mentega Prancis asli.',
+        price: 'Rp 36.000',
+        buttonText: 'Pesan Hangat',
+        badgeText: 'Fresh Oven',
+        image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=80'
+      },
+      minimal: {
+        cardBg: '#ffffff',
+        btnColor: '#0f172a',
+        title: 'LINEN SHIRT SERIES',
+        description: 'Potongan minimalis berbahan linen premium breathable untuk gaya kasual.',
+        price: 'Rp 189.000',
+        buttonText: 'BELI SEKARANG',
+        badgeText: 'NEW DROP',
+        image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=600&auto=format&fit=crop&q=80'
+      },
+      dark: {
+        cardBg: '#0f172a',
+        btnColor: '#6366f1',
+        title: 'Signature Dark Roast',
+        description: 'Biji kopi single-origin Gayo sangrai medium-dark beraroma cokelat pekat.',
+        price: 'Rp 45.000',
+        buttonText: 'Pesan Eksklusif',
+        badgeText: 'LIMITED',
+        image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&auto=format&fit=crop&q=80'
+      }
+    }[variant];
 
     onAddElement({
       category: 'PRODUCT',
@@ -201,17 +236,22 @@ export default function AdvancePaletteSidebar({
       posY,
       width,
       height,
-      color: cardBg,
+      color: presets.cardBg,
       properties: {
+        linkType: 'wa',
+        waNumber: '081234567890',
         cardData: {
-          title: 'Paket Spesial Nusantara',
-          description: 'Cita rasa rempah istimewa dibuat higienis dan segar setiap hari.',
-          image: chosenImg,
-          price: 'Rp 28.000',
-          buttonText: 'Pesan Sekarang',
-          buttonLink: 'https://wa.me/6281234567890?text=Halo%20saya%20mau%20pesan'
+          title: presets.title,
+          description: presets.description,
+          image: presets.image,
+          price: presets.price,
+          buttonText: presets.buttonText,
+          buttonLink: `https://wa.me/6281234567890?text=${encodeURIComponent(`Halo, saya ingin memesan ${presets.title}.`)}`,
+          cardVariant: variant,
+          badgeText: presets.badgeText,
+          buttonColor: presets.btnColor
         },
-        buttonVariant: 'rounded',
+        buttonVariant: variant === 'badge' || variant === 'dark' ? 'pill' : 'rounded',
         buttonTextColor: '#ffffff'
       }
     });
@@ -856,98 +896,143 @@ export default function AdvancePaletteSidebar({
             {/* 3. KARTU PRODUK (AC-PRD-01..04)                               */}
             {/* ============================================================= */}
             {activeTab === 'product' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <p className="text-xs text-slate-500 font-medium">
-                  Setiap kartu terintegrasi dengan 4 elemen wajib: Slot Gambar, Judul, Deskripsi, dan Tombol CTA.
+                  Pilih variasi desain kartu produk dengan bentuk, warna, dan tata letak yang berbeda.
                 </p>
 
-                {/* Varian 1: Modern Rounded */}
+                {/* Varian 1: Modern Clean (Vertikal Biru) */}
                 <div
                   onClick={() => handleAddProductCard('modern')}
-                  className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:shadow-md cursor-pointer transition bg-white group"
+                  className="p-3 rounded-2xl border border-slate-200 hover:border-blue-500 hover:shadow-md cursor-pointer transition bg-white group"
                 >
                   <div className="flex gap-3 items-center">
-                    <div className="w-16 h-16 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 font-bold text-xs">
-                      Foto Slot
+                    <div className="w-16 h-20 rounded-xl bg-slate-50 border border-slate-200 p-1.5 flex flex-col justify-between shrink-0 shadow-2xs">
+                      <div className="w-full h-9 rounded-lg bg-gradient-to-br from-blue-100 to-sky-200" />
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-10 bg-slate-700 rounded-full" />
+                        <div className="h-2.5 w-full bg-blue-600 rounded-md" />
+                      </div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="text-xs font-black text-slate-900 group-hover:text-blue-600">
                         Kartu Produk Modern
                       </h4>
                       <p className="text-[11px] text-slate-500 line-clamp-1">
-                        Desain elegan dengan bayangan lembut & tombol biru.
+                        Vertikal elegan, sudut halus, tombol biru klasik.
                       </p>
-                      <span className="inline-block mt-1 text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                        Rp 28.000 • CTA WhatsApp
+                      <span className="inline-block mt-1.5 text-[10px] font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                        Vertikal • Modern Blue
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Varian 2: Badge Accent */}
+                {/* Varian 2: Menu Unggulan (Full-Bleed + Floating Badge Emerald) */}
                 <div
                   onClick={() => handleAddProductCard('badge')}
-                  className="p-3.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:shadow-md cursor-pointer transition bg-white group"
+                  className="p-3 rounded-2xl border border-emerald-200 hover:border-emerald-500 hover:shadow-md cursor-pointer transition bg-white group"
                 >
                   <div className="flex gap-3 items-center">
-                    <div className="w-16 h-16 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0 font-bold text-xs">
-                      Foto Slot
+                    <div className="w-16 h-20 rounded-2xl bg-white border border-emerald-200 overflow-hidden flex flex-col justify-between shrink-0 shadow-2xs">
+                      <div className="w-full h-11 bg-gradient-to-br from-emerald-400 to-teal-500 relative">
+                        <span className="absolute top-1 left-1 px-1 py-0.5 rounded-full bg-white/95 text-[6px] font-black text-emerald-700">★ LARIS</span>
+                      </div>
+                      <div className="p-1.5 space-y-1">
+                        <div className="h-1.5 w-9 bg-slate-700 rounded-full" />
+                        <div className="h-2.5 w-full bg-emerald-600 rounded-full" />
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900 group-hover:text-blue-600">
-                        Kartu Menu Unggulan
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-black text-slate-900 group-hover:text-emerald-600">
+                        Menu Unggulan (Badge)
                       </h4>
                       <p className="text-[11px] text-slate-500 line-clamp-1">
-                        Aksen warna hijau segar cocok untuk kuliner & herbal.
+                        Foto full-bleed, label Paling Laris & tombol kapsul.
                       </p>
-                      <span className="inline-block mt-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                        Paling Laris • Hijau Emerald
+                      <span className="inline-block mt-1.5 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        ★ Full-Bleed • Emerald Pill
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Varian 3: Warm Cafe */}
+                {/* Varian 3: Artisan Horizontal Split Card (Foto Kiri, Info Kanan) */}
                 <div
                   onClick={() => handleAddProductCard('warm')}
-                  className="p-3.5 rounded-xl border border-amber-200 hover:border-amber-400 hover:shadow-md cursor-pointer transition bg-amber-50/50 group"
+                  className="p-3 rounded-2xl border border-amber-200 hover:border-amber-500 hover:shadow-md cursor-pointer transition bg-amber-50/60 group"
                 >
                   <div className="flex gap-3 items-center">
-                    <div className="w-16 h-16 rounded-lg bg-amber-200 flex items-center justify-center text-amber-800 shrink-0 font-bold text-xs">
-                      Foto Slot
+                    <div className="w-16 h-12 rounded-xl bg-amber-50 border border-amber-300 p-1 flex gap-1 shrink-0 shadow-2xs">
+                      <div className="w-7 h-full rounded-lg bg-gradient-to-br from-amber-300 to-orange-400 shrink-0" />
+                      <div className="flex-1 flex flex-col justify-between py-0.5">
+                        <div className="h-1.5 w-full bg-amber-900 rounded-full" />
+                        <div className="h-2 w-full bg-amber-700 rounded-md" />
+                      </div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h4 className="text-xs font-black text-amber-950 group-hover:text-amber-700">
-                        Kartu Artisan & Cafe
+                        Artisan Horizontal Split
                       </h4>
                       <p className="text-[11px] text-amber-800/80 line-clamp-1">
-                        Warna krem hangat, cocok untuk kopi dan bakery.
+                        Bentuk melebar, foto di kiri & info krem di kanan.
                       </p>
-                      <span className="inline-block mt-1 text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                        Artisan Bakery • Warm Amber
+                      <span className="inline-block mt-1.5 text-[10px] font-extrabold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                        Horizontal • Warm Cafe
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Varian 4: Minimal Clean */}
+                {/* Varian 4: Minimalis Editorial (Sudut Tajam Monokrom) */}
                 <div
                   onClick={() => handleAddProductCard('minimal')}
-                  className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-400 hover:shadow-md cursor-pointer transition bg-white group"
+                  className="p-3 rounded-none border-2 border-slate-900 hover:bg-slate-50 hover:shadow-md cursor-pointer transition bg-white group"
                 >
                   <div className="flex gap-3 items-center">
-                    <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700 shrink-0 font-bold text-xs">
-                      Foto Slot
+                    <div className="w-16 h-20 rounded-none bg-white border-2 border-slate-900 p-1 flex flex-col justify-between shrink-0">
+                      <div className="w-full h-10 bg-slate-200" />
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-10 bg-slate-900" />
+                        <div className="h-2.5 w-full bg-slate-900" />
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-900">
-                        Kartu Minimalis Monokrom
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-black uppercase tracking-wide text-slate-900">
+                        Editorial Monokrom
                       </h4>
                       <p className="text-[11px] text-slate-500 line-clamp-1">
-                        Garis tipis tegas cocok untuk fashion & kriya.
+                        Sudut tajam 0px, bingkai tegas ala butik fashion.
                       </p>
-                      <span className="inline-block mt-1 text-[10px] font-extrabold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                        Monokrom • Clean Border
+                      <span className="inline-block mt-1.5 text-[10px] font-extrabold text-white bg-slate-900 px-2 py-0.5">
+                        Sharp 0px • Butik
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Varian 5: Dark Premium Luxury (Elegan Gelap) */}
+                <div
+                  onClick={() => handleAddProductCard('dark')}
+                  className="p-3 rounded-2xl border border-slate-700 hover:border-indigo-400 hover:shadow-lg cursor-pointer transition bg-slate-900 group"
+                >
+                  <div className="flex gap-3 items-center">
+                    <div className="w-16 h-20 rounded-2xl bg-slate-800 border border-indigo-500/40 p-1.5 flex flex-col justify-between shrink-0">
+                      <div className="w-full h-9 rounded-xl bg-gradient-to-br from-indigo-500/40 to-cyan-500/30" />
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-9 bg-amber-300 rounded-full" />
+                        <div className="h-2.5 w-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-black text-white group-hover:text-cyan-300">
+                        Dark Premium Luxury
+                      </h4>
+                      <p className="text-[11px] text-slate-400 line-clamp-1">
+                        Kartu gelap mewah, harga emas & tombol glow.
+                      </p>
+                      <span className="inline-block mt-1.5 text-[10px] font-extrabold text-amber-300 bg-indigo-950 border border-indigo-500/40 px-2 py-0.5 rounded-full">
+                        Dark Mode • Gold Accent
                       </span>
                     </div>
                   </div>
@@ -963,6 +1048,37 @@ export default function AdvancePaletteSidebar({
                 <p className="text-xs text-slate-500 font-medium">
                   Pilih gaya tombol untuk diletakkan di tengah kanvas. Tombol dapat dihubungkan ke WhatsApp, URL, atau perpindahan antar kanvas.
                 </p>
+
+                {/* Pesan Sekarang CTA (Produk / Order) */}
+                <div
+                  onClick={() =>
+                    onAddElement({
+                      category: 'BUTTON',
+                      posX: Math.round((CANVAS_DEFAULT_WIDTH - 220) / 2),
+                      posY: Math.round(((activeCanvas.height || 650) - 46) / 2),
+                      width: 220,
+                      height: 46,
+                      color: '#2563eb',
+                      properties: {
+                        text: 'Pesan Sekarang →',
+                        buttonVariant: 'rounded',
+                        buttonTextColor: '#ffffff',
+                        linkType: 'wa',
+                        waNumber: '081234567890',
+                        waMessage: 'Halo, saya ingin memesan produk ini.'
+                      }
+                    })
+                  }
+                  className="p-3 rounded-xl border border-blue-200 hover:border-blue-500 hover:shadow-sm cursor-pointer transition bg-blue-50/40 group"
+                >
+                  <button type="button" className="w-full py-2.5 rounded-xl bg-blue-600 text-white font-extrabold text-xs shadow-sm">
+                    Pesan Sekarang →
+                  </button>
+                  <div className="flex justify-between items-center mt-2 text-[10px] text-slate-500">
+                    <span>Tombol Order Produk (WA / Link)</span>
+                    <span className="text-blue-600 font-bold">+ Pasang</span>
+                  </div>
+                </div>
 
                 {/* Solid Rounded */}
                 <div

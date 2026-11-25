@@ -18,7 +18,7 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
-              Platform pembuat website modern berbasis AI untuk seluruh pelaku UMKM Indonesia. Bangun website toko profesional secara mandiri—lewat Mode Template Instan atau Advance Designer Mode bergaya Canva—tanpa coding.
+              Platform pembuat website modern berbasis AI untuk seluruh pelaku UMKM Indonesia. Bangun website toko profesional secara mandiri—lewat Mode Template Instan atau Advance Designer Mode berbasis kanvas visual—tanpa coding.
             </p>
             <div className="pt-2">
               <a
@@ -54,7 +54,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/studio/advance" className="hover:text-blue-400 transition-colors text-blue-300 font-semibold">
-                  Advance Designer Mode (Ala Canva)
+                  Advance Designer Mode (Freeform)
                 </Link>
               </li>
               <li>

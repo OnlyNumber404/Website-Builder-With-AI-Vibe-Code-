@@ -36,6 +36,11 @@ import AdvanceCanvasPage from '@/components/advance/AdvanceCanvasPage';
 import AdvanceAiCopilot from '@/components/advance/AdvanceAiCopilot';
 import AdvanceNavigationConfigModal from '@/components/advance/AdvanceNavigationConfigModal';
 import AdvancePreviewModal from '@/components/advance/AdvancePreviewModal';
+import AdvanceContextMenu, {
+  AlignType,
+  ContextMenuState,
+  LayerActionType
+} from '@/components/advance/AdvanceContextMenu';
 import { exportAdvanceWebsiteZip } from '@/lib/advanceExport';
 import { NexaWebMark } from '@/components/common/NexaWebLogo';
 
@@ -75,6 +80,24 @@ export default function AdvanceStudioPage() {
   const [aiCursor, setAiCursor] = useState<AiCursorState | null>(null);
   const [recentlyAddedElementId, setRecentlyAddedElementId] = useState<string | null>(null);
   const skipAiAnimRef = useRef<boolean>(false);
+
+  // Right-Click Context Menu, Clipboard & Toast States
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [clipboardElements, setClipboardElements] = useState<CanvasElement[]>([]);
+  const [copiedStyle, setCopiedStyle] = useState<{
+    color: string;
+    properties: Partial<CanvasElement['properties']>;
+  } | null>(null);
+  const [actionToast, setActionToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setActionToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setActionToast(null);
+    }, 1900);
+  }, []);
 
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
@@ -165,7 +188,7 @@ export default function AdvanceStudioPage() {
     }
   }, [history, canvases, activeCanvasId]);
 
-  // Keyboard Shortcuts: Undo, Redo, Delete, Duplicate
+  // Keyboard Shortcuts: Undo, Redo, Copy, Paste, Copy/Paste Style, Duplicate, Group, Lock, Delete, Select All, Arrow Nudge
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input or textarea
@@ -178,34 +201,75 @@ export default function AdvanceStudioPage() {
         return;
       }
 
+      const key = e.key.toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+
       // Undo: Ctrl+Z / Cmd+Z
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+      if (mod && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         handleUndo();
       }
       // Redo: Ctrl+Y or Ctrl+Shift+Z
-      else if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
-      ) {
+      else if ((mod && key === 'y') || (mod && e.shiftKey && key === 'z')) {
         e.preventDefault();
         handleRedo();
+      }
+      // Copy Style: Ctrl+Alt+C
+      else if (mod && e.altKey && key === 'c' && selectedElementIds.length > 0) {
+        e.preventDefault();
+        handleCopyStyle();
+      }
+      // Paste Style: Ctrl+Alt+V
+      else if (mod && e.altKey && key === 'v' && selectedElementIds.length > 0) {
+        e.preventDefault();
+        handlePasteStyle();
+      }
+      // Copy: Ctrl+C
+      else if (mod && !e.altKey && key === 'c' && selectedElementIds.length > 0) {
+        e.preventDefault();
+        handleCopyElements();
+      }
+      // Paste: Ctrl+V
+      else if (mod && !e.altKey && key === 'v' && clipboardElements.length > 0) {
+        e.preventDefault();
+        handlePasteElements();
+      }
+      // Duplicate: Ctrl+D
+      else if (mod && key === 'd' && selectedElementIds.length > 0) {
+        e.preventDefault();
+        handleDuplicateElement();
+      }
+      // Ungroup: Ctrl+Shift+G
+      else if (mod && e.shiftKey && key === 'g' && selectedElementIds.length > 0) {
+        e.preventDefault();
+        handleUngroupElements();
+      }
+      // Group: Ctrl+G
+      else if (mod && !e.shiftKey && key === 'g' && selectedElementIds.length > 1) {
+        e.preventDefault();
+        handleGroupElements();
+      }
+      // Lock / Unlock: Alt+Shift+L
+      else if (e.altKey && e.shiftKey && key === 'l' && selectedElementIds.length > 0) {
+        e.preventDefault();
+        handleToggleLockElements();
+      }
+      // Select All: Ctrl+A
+      else if (mod && key === 'a') {
+        e.preventDefault();
+        handleSelectAllInActiveCanvas();
       }
       // Delete: Delete or Backspace
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementIds.length > 0) {
         e.preventDefault();
         handleDeleteElement();
       }
-      // Duplicate: Ctrl+D
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd' && selectedElementIds.length > 0) {
-        e.preventDefault();
-        handleDuplicateElement();
-      }
       // Deselect: Escape
       else if (e.key === 'Escape') {
         setSelectedElementIds([]);
+        setContextMenu(null);
       }
-      // Precision Keyboard Nudging: Arrow Keys (1px normal, 10px with Shift)
+      // Precision Keyboard Nudging: Arrow Keys (1px normal, 10px with Shift; skip locked elements)
       else if (
         selectedElementIds.length > 0 &&
         (e.key === 'ArrowUp' ||
@@ -224,7 +288,7 @@ export default function AdvanceStudioPage() {
             const cHeight = c.height || CANVAS_DEFAULT_HEIGHT;
             let changed = false;
             const nextEls = c.elements.map((el) => {
-              if (!idSet.has(el.id)) return el;
+              if (!idSet.has(el.id) || el.locked) return el;
               changed = true;
               return {
                 ...el,
@@ -240,7 +304,7 @@ export default function AdvanceStudioPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, selectedElementIds]);
+  });
 
   // -------------------------------------------------------------------------
   // Element Actions
@@ -391,18 +455,23 @@ export default function AdvanceStudioPage() {
     );
   };
 
-  // Delete element(s) (single or multi-select)
+  // Delete element(s) (single or multi-select, skipping locked elements)
   const handleDeleteElement = () => {
     if (selectedElementIds.length === 0) return;
+    const deletableIds = selectedElements.filter((el) => !el.locked).map((el) => el.id);
+    if (deletableIds.length === 0) {
+      showToast('Elemen terkunci — buka kunci terlebih dahulu');
+      return;
+    }
     pushToHistory(canvases);
-    const idSet = new Set(selectedElementIds);
+    const idSet = new Set(deletableIds);
     setCanvases((prev) =>
       prev.map((c) => ({
         ...c,
         elements: c.elements.filter((el) => !idSet.has(el.id))
       }))
     );
-    setSelectedElementIds([]);
+    setSelectedElementIds((prev) => prev.filter((id) => !idSet.has(id)));
   };
 
   // Duplicate element(s) (single or multi-select)
@@ -506,6 +575,18 @@ export default function AdvanceStudioPage() {
     if (activeCanvasId === canvasId) {
       setActiveCanvasId(updated[0]?.id || '');
     }
+  };
+
+  const handleRenameCanvas = (canvasId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    pushToHistory(canvases);
+    setCanvases((prev) =>
+      prev.map((c) =>
+        c.id === canvasId
+          ? { ...c, title: trimmed || `Kanvas ${c.pageIndex}` }
+          : c
+      )
+    );
   };
 
   const handleUpdateCanvasBackground = (
@@ -700,6 +781,321 @@ export default function AdvanceStudioPage() {
       })
     );
   };
+
+  // -------------------------------------------------------------------------
+  // Right-Click Context Menu Actions (Canva-style Single & Multi-Select)
+  // -------------------------------------------------------------------------
+  const handleCopyElements = () => {
+    if (selectedElements.length === 0) return;
+    setClipboardElements(JSON.parse(JSON.stringify(selectedElements)));
+    showToast(
+      selectedElements.length > 1
+        ? `${selectedElements.length} elemen disalin`
+        : 'Elemen disalin'
+    );
+  };
+
+  const handleCopyStyle = () => {
+    const primary = selectedElements[0];
+    if (!primary) return;
+    const p = primary.properties;
+    const styleProps: Partial<CanvasElement['properties']> = {};
+    if (p.opacity !== undefined) styleProps.opacity = p.opacity;
+    if (p.borderColor !== undefined) styleProps.borderColor = p.borderColor;
+    if (p.borderWidth !== undefined) styleProps.borderWidth = p.borderWidth;
+    if (p.borderStyle !== undefined) styleProps.borderStyle = p.borderStyle;
+    if (p.borderRadius !== undefined) styleProps.borderRadius = p.borderRadius;
+    if (p.shadow !== undefined) styleProps.shadow = p.shadow;
+    if (p.font !== undefined) styleProps.font = p.font;
+    if (p.fontSize !== undefined) styleProps.fontSize = p.fontSize;
+    if (p.fontWeight !== undefined) styleProps.fontWeight = p.fontWeight;
+    if (p.fontStyle !== undefined) styleProps.fontStyle = p.fontStyle;
+    if (p.textAlign !== undefined) styleProps.textAlign = p.textAlign;
+    if (p.buttonVariant !== undefined) styleProps.buttonVariant = p.buttonVariant;
+    if (p.buttonTextColor !== undefined) styleProps.buttonTextColor = p.buttonTextColor;
+
+    setCopiedStyle({ color: primary.color, properties: styleProps });
+    showToast('Gaya elemen disalin (Ctrl+Alt+V untuk tempel)');
+  };
+
+  const handlePasteStyle = () => {
+    if (!copiedStyle || selectedElements.length === 0) return;
+    const unlockedIds = new Set(selectedElements.filter((el) => !el.locked).map((el) => el.id));
+    if (unlockedIds.size === 0) {
+      showToast('Elemen terkunci — buka kunci terlebih dahulu');
+      return;
+    }
+    pushToHistory(canvases);
+    setCanvases((prev) =>
+      prev.map((c) => ({
+        ...c,
+        elements: c.elements.map((el) => {
+          if (!unlockedIds.has(el.id)) return el;
+          return {
+            ...el,
+            color: copiedStyle.color,
+            properties: {
+              ...el.properties,
+              ...copiedStyle.properties
+            }
+          };
+        })
+      }))
+    );
+    showToast(`Gaya diterapkan ke ${unlockedIds.size} elemen`);
+  };
+
+  const handlePasteElements = (targetCanvasX?: number, targetCanvasY?: number) => {
+    if (clipboardElements.length === 0) return;
+    pushToHistory(canvases);
+
+    const minX = Math.min(...clipboardElements.map((el) => el.posX));
+    const minY = Math.min(...clipboardElements.map((el) => el.posY));
+    const cHeight = activeCanvas.height || CANVAS_DEFAULT_HEIGHT;
+    const newGroupMap = new Map<string, string>();
+    const newIds: string[] = [];
+
+    const pasted: CanvasElement[] = clipboardElements.map((orig, idx) => {
+      const newId = `el-paste-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 5)}`;
+      newIds.push(newId);
+
+      let nextGroupId = orig.groupId;
+      if (orig.groupId) {
+        if (!newGroupMap.has(orig.groupId)) {
+          newGroupMap.set(orig.groupId, `grp-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`);
+        }
+        nextGroupId = newGroupMap.get(orig.groupId);
+      }
+
+      const rawX =
+        targetCanvasX !== undefined ? targetCanvasX + (orig.posX - minX) : orig.posX + 28;
+      const rawY =
+        targetCanvasY !== undefined ? targetCanvasY + (orig.posY - minY) : orig.posY + 28;
+
+      return {
+        ...JSON.parse(JSON.stringify(orig)),
+        id: newId,
+        locked: false,
+        groupId: nextGroupId,
+        posX: Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 40, Math.round(rawX))),
+        posY: Math.max(0, Math.min(cHeight - 24, Math.round(rawY)))
+      };
+    });
+
+    setCanvases((prev) =>
+      prev.map((c) =>
+        c.id === activeCanvas.id ? { ...c, elements: [...c.elements, ...pasted] } : c
+      )
+    );
+    setSelectedElementIds(newIds);
+    showToast(pasted.length > 1 ? `${pasted.length} elemen ditempel` : 'Elemen ditempel');
+  };
+
+  const handleAlignElements = (alignType: AlignType) => {
+    const unlocked = selectedElements.filter((el) => !el.locked);
+    if (unlocked.length === 0) return;
+    pushToHistory(canvases);
+
+    const cHeight = activeCanvas.height || CANVAS_DEFAULT_HEIGHT;
+    const updates = new Map<string, { posX: number; posY: number }>();
+
+    if (unlocked.length === 1) {
+      // Single element: align relative to the Canvas
+      const el = unlocked[0];
+      let nextX = el.posX;
+      let nextY = el.posY;
+      if (alignType === 'left') nextX = 0;
+      else if (alignType === 'center-h') nextX = Math.round((CANVAS_DEFAULT_WIDTH - el.width) / 2);
+      else if (alignType === 'right') nextX = Math.max(0, CANVAS_DEFAULT_WIDTH - el.width);
+      else if (alignType === 'top') nextY = 0;
+      else if (alignType === 'center-v') nextY = Math.round((cHeight - el.height) / 2);
+      else if (alignType === 'bottom') nextY = Math.max(0, cHeight - el.height);
+      updates.set(el.id, { posX: nextX, posY: nextY });
+    } else {
+      // Multi-select: align relative to bounding box of selection
+      const minX = Math.min(...unlocked.map((e) => e.posX));
+      const maxX = Math.max(...unlocked.map((e) => e.posX + e.width));
+      const minY = Math.min(...unlocked.map((e) => e.posY));
+      const maxY = Math.max(...unlocked.map((e) => e.posY + e.height));
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+
+      if (alignType === 'left') {
+        unlocked.forEach((el) => updates.set(el.id, { posX: minX, posY: el.posY }));
+      } else if (alignType === 'center-h') {
+        unlocked.forEach((el) =>
+          updates.set(el.id, { posX: Math.round(centerX - el.width / 2), posY: el.posY })
+        );
+      } else if (alignType === 'right') {
+        unlocked.forEach((el) => updates.set(el.id, { posX: maxX - el.width, posY: el.posY }));
+      } else if (alignType === 'top') {
+        unlocked.forEach((el) => updates.set(el.id, { posX: el.posX, posY: minY }));
+      } else if (alignType === 'center-v') {
+        unlocked.forEach((el) =>
+          updates.set(el.id, { posX: el.posX, posY: Math.round(centerY - el.height / 2) })
+        );
+      } else if (alignType === 'bottom') {
+        unlocked.forEach((el) => updates.set(el.id, { posX: el.posX, posY: maxY - el.height }));
+      } else if (alignType === 'distribute-h' && unlocked.length >= 3) {
+        const sorted = [...unlocked].sort((a, b) => a.posX - b.posX);
+        const totalElW = sorted.reduce((acc, el) => acc + el.width, 0);
+        const spanW = sorted[sorted.length - 1].posX + sorted[sorted.length - 1].width - sorted[0].posX;
+        const gap = Math.max(0, (spanW - totalElW) / (sorted.length - 1));
+        let cursorX = sorted[0].posX;
+        sorted.forEach((el) => {
+          updates.set(el.id, { posX: Math.round(cursorX), posY: el.posY });
+          cursorX += el.width + gap;
+        });
+      } else if (alignType === 'distribute-v' && unlocked.length >= 3) {
+        const sorted = [...unlocked].sort((a, b) => a.posY - b.posY);
+        const totalElH = sorted.reduce((acc, el) => acc + el.height, 0);
+        const spanH = sorted[sorted.length - 1].posY + sorted[sorted.length - 1].height - sorted[0].posY;
+        const gap = Math.max(0, (spanH - totalElH) / (sorted.length - 1));
+        let cursorY = sorted[0].posY;
+        sorted.forEach((el) => {
+          updates.set(el.id, { posX: el.posX, posY: Math.round(cursorY) });
+          cursorY += el.height + gap;
+        });
+      } else if (alignType === 'tidy-grid') {
+        // Align horizontal row neatly with 20px uniform gap & vertically centered
+        const sorted = [...unlocked].sort((a, b) => a.posX - b.posX);
+        const gap = 20;
+        const totalW = sorted.reduce((acc, el) => acc + el.width, 0) + gap * (sorted.length - 1);
+        let cursorX = Math.max(16, Math.round((CANVAS_DEFAULT_WIDTH - totalW) / 2));
+        sorted.forEach((el) => {
+          updates.set(el.id, {
+            posX: Math.min(CANVAS_DEFAULT_WIDTH - el.width, Math.round(cursorX)),
+            posY: Math.round(centerY - el.height / 2)
+          });
+          cursorX += el.width + gap;
+        });
+      }
+    }
+
+    if (updates.size === 0) return;
+    setCanvases((prev) =>
+      prev.map((c) => ({
+        ...c,
+        elements: c.elements.map((el) => {
+          const u = updates.get(el.id);
+          return u ? { ...el, posX: u.posX, posY: u.posY } : el;
+        })
+      }))
+    );
+  };
+
+  const handleLayerAction = (action: LayerActionType) => {
+    if (selectedElementIds.length === 0) return;
+    if (action === 'front') {
+      handleBringForward();
+      return;
+    }
+    if (action === 'back') {
+      handleSendBackward();
+      return;
+    }
+
+    pushToHistory(canvases);
+    const idSet = new Set(selectedElementIds);
+    setCanvases((prev) =>
+      prev.map((c) => {
+        const els = [...c.elements];
+        if (!els.some((el) => idSet.has(el.id))) return c;
+        if (action === 'forward') {
+          for (let i = els.length - 2; i >= 0; i--) {
+            if (idSet.has(els[i].id) && !idSet.has(els[i + 1].id)) {
+              [els[i], els[i + 1]] = [els[i + 1], els[i]];
+            }
+          }
+        } else if (action === 'backward') {
+          for (let i = 1; i < els.length; i++) {
+            if (idSet.has(els[i].id) && !idSet.has(els[i - 1].id)) {
+              [els[i], els[i - 1]] = [els[i - 1], els[i]];
+            }
+          }
+        }
+        return { ...c, elements: els };
+      })
+    );
+  };
+
+  const handleGroupElements = () => {
+    if (selectedElementIds.length < 2) return;
+    pushToHistory(canvases);
+    const newGroupId = `grp-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`;
+    const idSet = new Set(selectedElementIds);
+    setCanvases((prev) =>
+      prev.map((c) => ({
+        ...c,
+        elements: c.elements.map((el) =>
+          idSet.has(el.id) ? { ...el, groupId: newGroupId } : el
+        )
+      }))
+    );
+    showToast(`${selectedElementIds.length} elemen digabung menjadi grup`);
+  };
+
+  const handleUngroupElements = () => {
+    if (selectedElementIds.length === 0) return;
+    pushToHistory(canvases);
+    const idSet = new Set(selectedElementIds);
+    setCanvases((prev) =>
+      prev.map((c) => ({
+        ...c,
+        elements: c.elements.map((el) =>
+          idSet.has(el.id) ? { ...el, groupId: undefined } : el
+        )
+      }))
+    );
+    showToast('Grup dipisahkan');
+  };
+
+  const handleToggleLockElements = (targetIds?: string[]) => {
+    const ids = targetIds && targetIds.length > 0 ? targetIds : selectedElementIds;
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    const targetEls = canvases.flatMap((c) => c.elements).filter((el) => idSet.has(el.id));
+    if (targetEls.length === 0) return;
+
+    const shouldUnlock = targetEls.some((el) => el.locked);
+    pushToHistory(canvases);
+    setCanvases((prev) =>
+      prev.map((c) => ({
+        ...c,
+        elements: c.elements.map((el) =>
+          idSet.has(el.id) ? { ...el, locked: !shouldUnlock } : el
+        )
+      }))
+    );
+    showToast(shouldUnlock ? 'Kunci elemen dibuka' : 'Elemen dikunci');
+  };
+
+  const handleFitCanvasToSelection = () => {
+    if (selectedElements.length === 0) return;
+    pushToHistory(canvases);
+    const maxBottom = Math.max(...selectedElements.map((el) => el.posY + el.height));
+    const nextHeight = Math.max(360, Math.min(2000, Math.round(maxBottom + 64)));
+    setCanvases((prev) =>
+      prev.map((c) => (c.id === activeCanvas.id ? { ...c, height: nextHeight } : c))
+    );
+    showToast(`Tinggi kanvas disesuaikan ke ${nextHeight}px`);
+  };
+
+  const handleSelectAllInActiveCanvas = () => {
+    const ids = activeCanvas.elements.map((el) => el.id);
+    setSelectedElementIds(ids);
+    if (ids.length > 0) {
+      showToast(`${ids.length} elemen dipilih`);
+    }
+  };
+
+  const handleOpenContextMenu = useCallback(
+    (payload: Omit<ContextMenuState, 'isOpen'>) => {
+      setActiveCanvasId(payload.canvasId);
+      setContextMenu({ ...payload, isOpen: true });
+    },
+    []
+  );
 
   // -------------------------------------------------------------------------
   // Overpowered AI Plan Executor with Live Animated AI Cursor
@@ -1000,7 +1396,7 @@ export default function AdvanceStudioPage() {
                   NexaWeb<span className="text-blue-600">.advance</span>
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
-                  Canva-like Mode
+                  Freeform Studio
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-medium">Free-Form Multi-Canvas Editor</p>
@@ -1194,11 +1590,14 @@ export default function AdvanceStudioPage() {
                   onUpdateProductCardText={handleUpdateProductCardText}
                   onDuplicateCanvas={handleDuplicateCanvas}
                   onDeleteCanvas={handleDeleteCanvas}
+                  onRenameCanvas={handleRenameCanvas}
                   onDuplicateElement={handleDuplicateElement}
                   onDeleteElement={handleDeleteElement}
                   onUpdateCanvasBackground={handleUpdateCanvasBackground}
                   onTriggerImageUploadForElement={handleTriggerImageUploadForElement}
                   onOpenNavConfigModal={() => setIsNavConfigOpen(true)}
+                  onOpenContextMenu={handleOpenContextMenu}
+                  onToggleLockElement={(elId) => handleToggleLockElements([elId])}
                 />
               ))}
 
@@ -1253,6 +1652,42 @@ export default function AdvanceStudioPage() {
         onClose={() => setIsPreviewOpen(false)}
         canvases={canvases}
       />
+
+      {/* Canva-style Right-Click Context Menu (Single & Multiple Select) */}
+      <AdvanceContextMenu
+        menu={contextMenu}
+        selectedElements={selectedElements}
+        hasClipboard={clipboardElements.length > 0}
+        hasStyleClipboard={copiedStyle !== null}
+        onClose={() => setContextMenu(null)}
+        onCopy={handleCopyElements}
+        onCopyStyle={handleCopyStyle}
+        onPasteStyle={handlePasteStyle}
+        onPaste={handlePasteElements}
+        onDuplicate={handleDuplicateElement}
+        onDelete={handleDeleteElement}
+        onAlign={handleAlignElements}
+        onLayerAction={handleLayerAction}
+        onGroup={handleGroupElements}
+        onUngroup={handleUngroupElements}
+        onToggleLock={() => handleToggleLockElements()}
+        onFitCanvasToSelection={handleFitCanvasToSelection}
+        onMaskSelected={
+          selectedElements.length === 2
+            ? () => handleMaskWithElement(selectedElements[1].id, selectedElements[0].id)
+            : undefined
+        }
+        onUnmaskSelected={handleUnmaskElement}
+        onSelectAll={handleSelectAllInActiveCanvas}
+      />
+
+      {/* Subtle Floating Action Toast */}
+      {actionToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[150] px-4 py-2 rounded-full bg-slate-900/95 text-white text-xs font-semibold shadow-xl border border-slate-700/80 flex items-center gap-2 pointer-events-none animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <span>{actionToast}</span>
+        </div>
+      )}
     </div>
   );
 }

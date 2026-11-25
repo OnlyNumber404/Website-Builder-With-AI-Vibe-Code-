@@ -1,7 +1,7 @@
 # 🚀 NexaWeb.ai (v2.0.0) — Modern AI Website Builder
 
 > **Platform Pembuat Website Berbasis AI & Freeform Visual Canvas Generasi Baru untuk UMKM & Kreator Indonesia.**  
-> Bangun website profesional, responsif, dan siap rilis hanya dalam hitungan detik menggunakan kekuatan **Gemini AI** dan kanvas visual modern ala Figma/Canva.
+> Bangun website profesional, responsif, dan siap rilis hanya dalam hitungan detik menggunakan kekuatan **Gemini AI** dan kanvas visual bebas berpresisi tinggi.
 
 ---
 

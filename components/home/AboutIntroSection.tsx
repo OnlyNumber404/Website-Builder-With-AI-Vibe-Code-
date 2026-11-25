@@ -74,7 +74,7 @@ export default function AboutIntroSection() {
                   <span>2 Mode Editor Fleksibel</span>
                 </div>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Mau cepat pakai template siap jualan, atau kustom bebas seperti Canva dengan Smart Snap—semuanya tersedia.
+                  Mau cepat pakai template siap jualan, atau kustom bebas berbasis kanvas visual dengan Smart Snap—semuanya tersedia.
                 </p>
               </div>
 

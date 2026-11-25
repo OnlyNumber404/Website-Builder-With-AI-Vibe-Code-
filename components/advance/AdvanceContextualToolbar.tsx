@@ -144,7 +144,7 @@ export default function AdvanceContextualToolbar({
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-400">
           <span className="font-medium text-slate-500">Ukuran: 1000 × {activeCanvas?.height || 650}px</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200/80">Canva Editor</span>
+          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200/80">Visual Editor</span>
         </div>
       </div>
     );
@@ -907,6 +907,129 @@ export default function AdvanceContextualToolbar({
                 className="w-24 bg-transparent text-xs font-semibold focus:outline-none"
                 placeholder="Label Tombol"
               />
+            </div>
+
+            {/* Tujuan Tombol Produk (WhatsApp / Kanvas / URL) */}
+            <div className="flex items-center gap-1.5 bg-blue-50/80 px-2.5 py-1 rounded-xl border border-blue-200 h-10 shadow-2xs">
+              <span className="text-[10px] text-blue-700 font-black uppercase tracking-wider">
+                Tujuan:
+              </span>
+              <select
+                value={properties.linkType || (properties.cardData.targetCanvasId ? 'canvas' : properties.cardData.buttonLink && !properties.cardData.buttonLink.includes('wa.me') ? 'url' : 'wa')}
+                onChange={(e) => {
+                  const nextType = e.target.value as 'canvas' | 'wa' | 'url';
+                  onUpdateElementProperties({ linkType: nextType });
+                }}
+                className="px-2 py-1 rounded-lg border border-blue-300 text-xs font-bold text-blue-900 bg-white"
+              >
+                <option value="wa">WhatsApp</option>
+                <option value="canvas">Pindah Kanvas</option>
+                <option value="url">Tautan URL</option>
+              </select>
+
+              {(properties.linkType === 'canvas' || (!properties.linkType && properties.cardData.targetCanvasId)) && (
+                <select
+                  value={properties.targetCanvasId || properties.cardData.targetCanvasId || allCanvases[0]?.id || ''}
+                  onChange={(e) =>
+                    onUpdateElementProperties({
+                      linkType: 'canvas',
+                      targetCanvasId: e.target.value,
+                      cardData: {
+                        ...properties.cardData!,
+                        targetCanvasId: e.target.value
+                      }
+                    })
+                  }
+                  className="px-2 py-1 rounded-lg border border-blue-300 text-xs font-semibold bg-white"
+                  title="Pilih Kanvas Tujuan"
+                >
+                  {allCanvases.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title || `Kanvas ${c.pageIndex}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {(properties.linkType === 'wa' || (!properties.linkType && !properties.cardData.targetCanvasId && (!properties.cardData.buttonLink || properties.cardData.buttonLink.includes('wa.me')))) && (
+                <input
+                  type="text"
+                  value={properties.waNumber ?? '081234567890'}
+                  onChange={(e) => {
+                    const num = e.target.value;
+                    const clean = num.replace(/[^0-9]/g, '');
+                    const formatted = clean.startsWith('0') ? '62' + clean.slice(1) : clean;
+                    const msg = `Halo, saya ingin memesan ${properties.cardData?.title || 'produk ini'}.`;
+                    onUpdateElementProperties({
+                      linkType: 'wa',
+                      waNumber: num,
+                      cardData: {
+                        ...properties.cardData!,
+                        buttonLink: formatted ? `https://wa.me/${formatted}?text=${encodeURIComponent(msg)}` : ''
+                      }
+                    });
+                  }}
+                  placeholder="0812xxxx"
+                  className="w-28 px-2 py-1 rounded-lg border border-blue-300 text-xs bg-white font-semibold"
+                  title="Nomor WhatsApp Tujuan"
+                />
+              )}
+
+              {(properties.linkType === 'url' || (!properties.linkType && properties.cardData.buttonLink && !properties.cardData.buttonLink.includes('wa.me'))) && (
+                <input
+                  type="text"
+                  value={properties.linkUrl ?? properties.cardData.buttonLink ?? 'https://'}
+                  onChange={(e) =>
+                    onUpdateElementProperties({
+                      linkType: 'url',
+                      linkUrl: e.target.value,
+                      cardData: {
+                        ...properties.cardData!,
+                        buttonLink: e.target.value
+                      }
+                    })
+                  }
+                  placeholder="https://..."
+                  className="w-32 px-2 py-1 rounded-lg border border-blue-300 text-xs bg-white"
+                  title="Alamat Web Tujuan"
+                />
+              )}
+            </div>
+
+            {/* Pilihan Gaya Desain Kartu Produk */}
+            <div className="relative flex items-center">
+              <select
+                value={properties.cardData.cardVariant || 'modern'}
+                onChange={(e) => {
+                  const nextVariant = e.target.value as 'modern' | 'badge' | 'warm' | 'minimal' | 'dark';
+                  const defaultColors: Record<string, { bg: string; btn: string; badge: string }> = {
+                    modern: { bg: '#ffffff', btn: '#2563eb', badge: '' },
+                    badge: { bg: '#ffffff', btn: '#059669', badge: '★ Paling Laris' },
+                    warm: { bg: '#fffbeb', btn: '#b45309', badge: 'Fresh Oven' },
+                    minimal: { bg: '#ffffff', btn: '#0f172a', badge: 'NEW DROP' },
+                    dark: { bg: '#0f172a', btn: '#6366f1', badge: 'LIMITED' }
+                  };
+                  const preset = defaultColors[nextVariant];
+                  onUpdateElementColor(preset.bg);
+                  onUpdateElementProperties({
+                    cardData: {
+                      ...properties.cardData!,
+                      cardVariant: nextVariant,
+                      buttonColor: preset.btn,
+                      badgeText: properties.cardData?.badgeText || preset.badge
+                    }
+                  });
+                }}
+                className="h-10 pl-3 pr-7 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-800 cursor-pointer appearance-none transition focus:outline-none"
+                title="Ubah Gaya Desain Kartu Produk"
+              >
+                <option value="modern">Gaya: Modern Biru</option>
+                <option value="badge">Gaya: Unggulan Badge</option>
+                <option value="warm">Gaya: Horizontal Cafe</option>
+                <option value="minimal">Gaya: Editorial 0px</option>
+                <option value="dark">Gaya: Dark Luxury</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 pointer-events-none" />
             </div>
 
             {/* Warna Latar Kartu Swatch */}

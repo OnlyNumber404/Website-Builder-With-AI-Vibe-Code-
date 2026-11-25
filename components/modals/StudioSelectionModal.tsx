@@ -255,7 +255,7 @@ export default function StudioSelectionModal({ isOpen, onClose }: StudioSelectio
                     {/* Lencana Fitur Advance */}
                     <div className="flex items-center justify-between mb-4">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Free-Form Canvas (Canva-like)
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Free-Form Visual Canvas
                       </span>
                       <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
                         Advance Mode
@@ -272,7 +272,7 @@ export default function StudioSelectionModal({ isOpen, onClose }: StudioSelectio
                     </h3>
                     
                     <p className="text-xs text-slate-600 leading-relaxed font-medium mt-2">
-                      Rancang tata letak website secara bebas berbasis kanvas visual seperti Canva. Seret & letakkan teks, gambar, tombol, kartu produk, dan navigasi tanpa batasan grid kaku.
+                      Rancang tata letak website secara bebas berbasis kanvas visual interaktif. Seret & letakkan teks, gambar, tombol, kartu produk, dan navigasi tanpa batasan grid kaku.
                     </p>
 
                     {/* Poin Keunggulan Utama */}

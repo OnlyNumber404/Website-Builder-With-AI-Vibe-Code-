@@ -25,7 +25,7 @@ export default function AboutPage() {
     {
       level: 'LANGKAH 1',
       title: 'Pilih Mode Studio & Ide Bisnis',
-      description: 'Mulai cepat menggunakan Mode Template siap pakai yang langsung menyusun halaman toko Anda, atau berkreasi bebas dari nol menggunakan Advance Designer Mode bergaya Canva.',
+      description: 'Mulai cepat menggunakan Mode Template siap pakai yang langsung menyusun halaman toko Anda, atau berkreasi bebas dari nol menggunakan Advance Designer Mode berbasis kanvas visual.',
       badge: 'Template & Kanvas Bebas',
       highlight: 'Draft website langsung terbentuk dalam hitungan detik'
     },
@@ -153,7 +153,7 @@ export default function AboutPage() {
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="text-emerald-600 font-bold">✓</span>
-                      <span><strong>2 Mode Studio Fleksibel:</strong> Pilih Mode Template untuk serba instan, atau Advance Designer Mode (gaya Canva) untuk kustomisasi bebas multi-kanvas.</span>
+                      <span><strong>2 Mode Studio Fleksibel:</strong> Pilih Mode Template untuk serba instan, atau Advance Designer Mode untuk kustomisasi bebas multi-kanvas.</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="text-emerald-600 font-bold">✓</span>
