@@ -253,7 +253,7 @@ export default function AiCopilotSidebar({
   if (!isOpen) return null;
 
   return (
-    <aside className="w-80 sm:w-96 h-full shrink-0 bg-white border-l border-slate-200/90 flex flex-col overflow-hidden shadow-xl z-20">
+    <aside className="fixed lg:static top-[60px] sm:top-[64px] lg:top-auto bottom-0 right-0 w-[88vw] max-w-[360px] lg:w-80 xl:w-96 shrink-0 bg-white border-l border-slate-200/90 flex flex-col overflow-hidden shadow-2xl lg:shadow-xl z-40 lg:z-20">
       
       {/* Header Panel AI */}
       <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">

@@ -101,11 +101,19 @@ export default function AdvanceStudioPage() {
 
   const mainContainerRef = useRef<HTMLDivElement>(null);
 
+  // Auto-collapse AI sidebar on mobile screens so canvas gets full space
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsAiOpen(false);
+    }
+  }, []);
+
   const updateFitScale = useCallback(() => {
     if (!mainContainerRef.current) return;
     const containerWidth = mainContainerRef.current.clientWidth;
-    const availableWidth = Math.max(300, containerWidth - 48);
-    const scale = Math.min(1.0, Math.max(0.35, Math.round((availableWidth / (CANVAS_DEFAULT_WIDTH + 24)) * 100) / 100));
+    const padding = containerWidth < 640 ? 16 : 48;
+    const availableWidth = Math.max(240, containerWidth - padding);
+    const scale = Math.min(1.0, Math.max(0.25, Math.round((availableWidth / (CANVAS_DEFAULT_WIDTH + 24)) * 100) / 100));
     setZoomLevel(scale);
   }, []);
 
@@ -1375,22 +1383,22 @@ export default function AdvanceStudioPage() {
       {/* --------------------------------------------------------------------- */}
       {/* 1. BILAH ATAS (TOP BAR): BRAND, HISTORI UNDO/REDO, EXPORT, AI TOGGLE  */}
       {/* --------------------------------------------------------------------- */}
-      <header className="h-14 bg-white border-b border-slate-200/90 px-4 flex items-center justify-between z-30 shrink-0">
+      <header className="min-h-14 bg-white border-b border-slate-200/90 px-2.5 sm:px-4 py-1.5 flex items-center justify-between gap-2 z-30 shrink-0 overflow-x-auto">
         {/* Kiri: Tombol Kembali & Brand */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link
             href="/"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200/80 transition shadow-2xs"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs border border-slate-200/80 transition shadow-2xs"
           >
             <ArrowLeft className="w-4 h-4 text-slate-500" />
-            <span>Kembali</span>
+            <span className="hidden sm:inline">Kembali</span>
           </Link>
 
-          <div className="h-5 w-px bg-slate-200" />
+          <div className="h-5 w-px bg-slate-200 hidden sm:block" />
 
-          <div className="flex items-center gap-2.5">
-            <NexaWebMark size={34} className="rounded-lg shadow-md shadow-blue-500/20" />
-            <div>
+          <div className="flex items-center gap-2">
+            <NexaWebMark size={30} className="rounded-lg shadow-md shadow-blue-500/20 shrink-0" />
+            <div className="hidden md:block">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-sm text-slate-900 tracking-tight">
                   NexaWeb<span className="text-blue-600">.advance</span>
@@ -1405,7 +1413,7 @@ export default function AdvanceStudioPage() {
         </div>
 
         {/* Tengah: Zoom Scale Controls */}
-        <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
+        <div className="hidden sm:flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200 shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -1480,11 +1488,11 @@ export default function AdvanceStudioPage() {
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition shadow-2xs"
+            className="px-2.5 sm:px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 transition shadow-2xs shrink-0"
             title="Lihat Pratinjau Interaktif Website"
           >
             <Eye className="w-4 h-4 text-slate-600" />
-            <span>Pratinjau</span>
+            <span className="hidden sm:inline">Pratinjau</span>
           </button>
 
           {/* Deploy / Unduh ZIP Website */}
@@ -1492,25 +1500,25 @@ export default function AdvanceStudioPage() {
             type="button"
             onClick={handleDeployZip}
             disabled={isDeploying}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition active:scale-95 disabled:opacity-60"
+            className="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition active:scale-95 disabled:opacity-60 shrink-0"
             title="Unduh Paket Website Lengkap (index.html & css)"
           >
             <Rocket className="w-4 h-4 text-blue-200" />
-            <span>{isDeploying ? 'Mengekspor...' : 'Deploy ZIP'}</span>
+            <span className="hidden sm:inline">{isDeploying ? 'Mengekspor...' : 'Deploy ZIP'}</span>
           </button>
 
           {/* AC-ADV-05: Tombol Buka/Tutup Asisten AI */}
           <button
             type="button"
             onClick={() => setIsAiOpen(!isAiOpen)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+            className={`px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shrink-0 ${
               isAiOpen
                 ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
                 : 'bg-blue-600 text-white shadow-md shadow-blue-600/20 hover:bg-blue-700'
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span>{isAiOpen ? 'Tutup AI' : 'Buka AI'}</span>
+            <span className="hidden md:inline">{isAiOpen ? 'Tutup AI' : 'Buka AI'}</span>
           </button>
         </div>
       </header>
@@ -1552,7 +1560,7 @@ export default function AdvanceStudioPage() {
         <main
           ref={mainContainerRef}
           aria-label="Area Kerja Kanvas Utama"
-          className="flex-1 min-w-0 overflow-auto bg-slate-200/70 p-4 sm:p-6 relative flex"
+          className="flex-1 min-w-0 overflow-auto bg-slate-200/70 p-2.5 sm:p-6 pb-20 md:pb-6 relative flex"
         >
           <div
             style={{
