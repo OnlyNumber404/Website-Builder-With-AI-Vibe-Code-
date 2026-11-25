@@ -13,7 +13,9 @@ import {
   Check,
   Maximize2,
   Edit3,
-  Sparkles
+  Sparkles,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import {
   AdvanceCanvas,
@@ -23,6 +25,7 @@ import {
   CANVAS_DEFAULT_HEIGHT
 } from '@/lib/advanceTypes';
 import AdvanceShapeRenderer from '@/components/advance/AdvanceShapeRenderer';
+import { ContextMenuState } from '@/components/advance/AdvanceContextMenu';
 import { getShapeClipPath, HEART_CLIP_PATH_D } from '@/lib/advanceMaskUtils';
 
 export interface AdvanceCanvasPageProps {
@@ -42,11 +45,14 @@ export interface AdvanceCanvasPageProps {
   onUpdateProductCardText: (elementId: string, updates: { title?: string; price?: string; description?: string; buttonText?: string }) => void;
   onDuplicateCanvas: (canvasId: string) => void;
   onDeleteCanvas: (canvasId: string) => void;
+  onRenameCanvas?: (canvasId: string, newTitle: string) => void;
   onUpdateCanvasBackground: (canvasId: string, bg: { color?: string; image?: string }) => void;
   onTriggerImageUploadForElement: (elementId: string) => void;
   onOpenNavConfigModal: () => void;
   onDuplicateElement?: () => void;
   onDeleteElement?: () => void;
+  onOpenContextMenu?: (payload: Omit<ContextMenuState, 'isOpen'>) => void;
+  onToggleLockElement?: (elementId: string) => void;
 }
 
 export default function AdvanceCanvasPage({
@@ -66,11 +72,14 @@ export default function AdvanceCanvasPage({
   onUpdateProductCardText,
   onDuplicateCanvas,
   onDeleteCanvas,
+  onRenameCanvas,
   onUpdateCanvasBackground,
   onTriggerImageUploadForElement,
   onOpenNavConfigModal,
   onDuplicateElement,
-  onDeleteElement
+  onDeleteElement,
+  onOpenContextMenu,
+  onToggleLockElement
 }: AdvanceCanvasPageProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
@@ -79,6 +88,8 @@ export default function AdvanceCanvasPage({
     field: 'title' | 'price' | 'description' | 'buttonText';
   } | null>(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(canvas.title || `Kanvas ${canvas.pageIndex}`);
 
   // Smart Snap Alignment Guides (Gaya Canva)
   const [activeGuides, setActiveGuides] = useState<{
@@ -791,15 +802,34 @@ export default function AdvanceCanvasPage({
         return;
       }
 
-      // 2. Resizing element with 60fps Local Preview + Shift Proportional Lock + Smart Dimension Snapping
+      // 2. Resizing element with 60fps Local Preview + Shift Proportional Lock + Canvas Edge/Margin Snap + Distance Guides
       if (resizeRef.current.isResizing) {
         const dx = (e.clientX - resizeRef.current.startX) / zoom;
         const dy = (e.clientY - resizeRef.current.startY) / zoom;
         const { handle, initialWidth, initialHeight, initialPosX, initialPosY, elementId } = resizeRef.current;
 
+        const canvasHeight = canvasHeightRef.current;
         const otherElements = elementsRef.current.filter((item) => item.id !== elementId);
         const SNAP_THRESHOLD = 8;
+        const CANVAS_EDGE_SNAP = 10;
         const currentGuides: { type: 'vertical' | 'horizontal'; pos: number; label?: string }[] = [];
+        const currentSpacing: {
+          orientation: 'horizontal' | 'vertical';
+          x1: number;
+          y1: number;
+          x2: number;
+          y2: number;
+          distance: number;
+          isMatched: boolean;
+        }[] = [];
+
+        const movingRight = handle.includes('e');
+        const movingLeft = handle.includes('w');
+        const movingBottom = handle.includes('s');
+        const movingTop = handle.includes('n');
+
+        const anchorRight = initialPosX + initialWidth;
+        const anchorBottom = initialPosY + initialHeight;
 
         let rawWidth = initialWidth;
         let rawHeight = initialHeight;
@@ -831,58 +861,333 @@ export default function AdvanceCanvasPage({
           }
         }
 
-        let bestDiffW = SNAP_THRESHOLD + 1;
-        let snappedW = rawWidth;
-        let guideW: { type: 'vertical'; pos: number; label: string } | null = null;
+        // Deteksi apakah elemen yang sedang di-resize berada di dalam Shape/Kontainer luar
+        const initCenterX = initialPosX + initialWidth / 2;
+        const initCenterY = initialPosY + initialHeight / 2;
+        let hostContainer: CanvasElement | null = null;
+        let smallestHostArea = Infinity;
         for (const other of otherElements) {
-          const diffW = Math.abs(rawWidth - other.width);
-          if (diffW <= SNAP_THRESHOLD && diffW < bestDiffW) {
-            bestDiffW = diffW;
-            snappedW = other.width;
-            const targetX = handle.includes('w')
-              ? initialPosX + (initialWidth - other.width)
-              : initialPosX + other.width;
-            guideW = { type: 'vertical', pos: targetX, label: `Lebar Sama (${other.width}px)` };
-          }
-        }
-        if (guideW) {
-          rawWidth = snappedW;
-          if (aspectLocked && initialWidth > 0 && initialHeight > 0) {
-            rawHeight = Math.max(24, Math.round(rawWidth / (initialWidth / initialHeight)));
-          }
-          currentGuides.push(guideW);
-        }
-
-        if (!aspectLocked) {
-          let bestDiffH = SNAP_THRESHOLD + 1;
-          let snappedH = rawHeight;
-          let guideH: { type: 'horizontal'; pos: number; label: string } | null = null;
-          for (const other of otherElements) {
-            const diffH = Math.abs(rawHeight - other.height);
-            if (diffH <= SNAP_THRESHOLD && diffH < bestDiffH) {
-              bestDiffH = diffH;
-              snappedH = other.height;
-              const targetY = handle.includes('n')
-                ? initialPosY + (initialHeight - other.height)
-                : initialPosY + other.height;
-              guideH = { type: 'horizontal', pos: targetY, label: `Tinggi Sama (${other.height}px)` };
+          const isLarger = other.width > initialWidth + 4 && other.height > initialHeight + 4;
+          const centerInside =
+            initCenterX >= other.posX &&
+            initCenterX <= other.posX + other.width &&
+            initCenterY >= other.posY &&
+            initCenterY <= other.posY + other.height;
+          if (isLarger && centerInside) {
+            const area = other.width * other.height;
+            if (area < smallestHostArea) {
+              smallestHostArea = area;
+              hostContainer = other;
             }
           }
-          if (guideH) {
-            rawHeight = snappedH;
-            currentGuides.push(guideH);
+        }
+
+        const boundLeft = hostContainer ? hostContainer.posX : 0;
+        const boundRight = hostContainer ? hostContainer.posX + hostContainer.width : CANVAS_DEFAULT_WIDTH;
+        const boundTop = hostContainer ? hostContainer.posY : 0;
+        const boundBottom = hostContainer ? hostContainer.posY + hostContainer.height : canvasHeight;
+        const boundMidX = Math.round((boundLeft + boundRight) / 2);
+        const boundMidY = Math.round((boundTop + boundBottom) / 2);
+        const boundW = boundRight - boundLeft;
+        const boundH = boundBottom - boundTop;
+        const boundLabelPrefix = hostContainer ? 'Padding' : 'Margin';
+
+        // -----------------------------------------------------------------
+        // HORIZONTAL SNAP SAAT RESIZE (Kontainer Luar / Kanvas, Simetris, Tengah, Elemen Lain)
+        // -----------------------------------------------------------------
+        let snappedHorizontal = false;
+        let symMatchedH = false;
+        const curEdgeX = movingRight ? initialPosX + rawWidth : anchorRight - rawWidth;
+
+        // 1) Snap ke Tepi Kanan / Kiri Kontainer Luar atau Kanvas (0px)
+        if (movingRight && Math.abs(curEdgeX - boundRight) <= CANVAS_EDGE_SNAP) {
+          rawWidth = Math.max(40, boundRight - initialPosX);
+          currentGuides.push({
+            type: 'vertical',
+            pos: hostContainer ? boundRight : CANVAS_DEFAULT_WIDTH - 2,
+            label: hostContainer ? 'Tepi Kanan Kontainer (0px)' : 'Tepi Kanan (0px)'
+          });
+          snappedHorizontal = true;
+        } else if (movingLeft && Math.abs(curEdgeX - boundLeft) <= CANVAS_EDGE_SNAP) {
+          rawWidth = Math.max(40, anchorRight - boundLeft);
+          currentGuides.push({
+            type: 'vertical',
+            pos: hostContainer ? boundLeft : 1,
+            label: hostContainer ? 'Tepi Kiri Kontainer (0px)' : 'Tepi Kiri (0px)'
+          });
+          snappedHorizontal = true;
+        }
+
+        // 2) Snap Margin/Padding Simetris Kiri === Kanan terhadap Kontainer Luar / Kanvas
+        if (!snappedHorizontal) {
+          if (movingRight) {
+            const leftPad = initialPosX - boundLeft;
+            if (leftPad > 3 && leftPad < boundW / 2 - 20) {
+              const symTargetRight = boundRight - leftPad;
+              if (Math.abs(curEdgeX - symTargetRight) <= SNAP_THRESHOLD) {
+                rawWidth = Math.max(40, symTargetRight - initialPosX);
+                currentGuides.push({
+                  type: 'vertical',
+                  pos: symTargetRight,
+                  label: `${boundLabelPrefix} Simetris (${Math.round(leftPad)}px)`
+                });
+                snappedHorizontal = true;
+                symMatchedH = true;
+              }
+            }
+          } else if (movingLeft) {
+            const rightPad = boundRight - anchorRight;
+            if (rightPad > 3 && rightPad < boundW / 2 - 20) {
+              const symTargetLeft = boundLeft + rightPad;
+              if (Math.abs(curEdgeX - symTargetLeft) <= SNAP_THRESHOLD) {
+                rawWidth = Math.max(40, anchorRight - symTargetLeft);
+                currentGuides.push({
+                  type: 'vertical',
+                  pos: symTargetLeft,
+                  label: `${boundLabelPrefix} Simetris (${Math.round(rightPad)}px)`
+                });
+                snappedHorizontal = true;
+                symMatchedH = true;
+              }
+            }
           }
         }
 
+        // 3) Snap ke Garis Tengah Kontainer Luar / Kanvas
+        if (!snappedHorizontal && Math.abs(curEdgeX - boundMidX) <= SNAP_THRESHOLD) {
+          const targetW = movingRight ? boundMidX - initialPosX : anchorRight - boundMidX;
+          if (targetW >= 40) {
+            rawWidth = Math.round(targetW);
+            currentGuides.push({
+              type: 'vertical',
+              pos: boundMidX,
+              label: hostContainer ? 'Tengah Kontainer' : 'Tengah Kanvas'
+            });
+            snappedHorizontal = true;
+          }
+        }
+
+        // 4) Snap ke Tepi Elemen Lain atau Lebar Sama dengan Elemen Lain
+        if (!snappedHorizontal) {
+          let bestDiffX = SNAP_THRESHOLD + 1;
+          let bestW = rawWidth;
+          let guideW: { type: 'vertical'; pos: number; label: string } | null = null;
+
+          for (const other of otherElements) {
+            const edgeTargets = [other.posX, other.posX + other.width];
+            for (const targetX of edgeTargets) {
+              const diffEdge = Math.abs(curEdgeX - targetX);
+              const candidateW = movingRight ? targetX - initialPosX : anchorRight - targetX;
+              if (diffEdge <= SNAP_THRESHOLD && diffEdge < bestDiffX && candidateW >= 40) {
+                bestDiffX = diffEdge;
+                bestW = Math.round(candidateW);
+                guideW = { type: 'vertical', pos: targetX, label: 'Sejajar' };
+              }
+            }
+            const diffW = Math.abs(rawWidth - other.width);
+            if (diffW <= SNAP_THRESHOLD && diffW < bestDiffX) {
+              bestDiffX = diffW;
+              bestW = other.width;
+              const targetX = movingLeft ? anchorRight - other.width : initialPosX + other.width;
+              guideW = { type: 'vertical', pos: targetX, label: `Lebar Sama (${other.width}px)` };
+            }
+          }
+          if (guideW) {
+            rawWidth = bestW;
+            currentGuides.push(guideW);
+            snappedHorizontal = true;
+          }
+        }
+
+        if (snappedHorizontal && aspectLocked && initialWidth > 0 && initialHeight > 0) {
+          rawHeight = Math.max(24, Math.round(rawWidth / (initialWidth / initialHeight)));
+        }
+
+        // -----------------------------------------------------------------
+        // VERTICAL SNAP SAAT RESIZE (Kontainer Luar / Kanvas, Simetris, Tengah, Elemen Lain)
+        // -----------------------------------------------------------------
+        let symMatchedV = false;
+        if (!aspectLocked) {
+          let snappedVertical = false;
+          const curEdgeY = movingBottom ? initialPosY + rawHeight : anchorBottom - rawHeight;
+
+          // 1) Snap ke Tepi Bawah / Atas Kontainer Luar atau Kanvas (0px)
+          if (movingBottom && Math.abs(curEdgeY - boundBottom) <= CANVAS_EDGE_SNAP) {
+            rawHeight = Math.max(24, boundBottom - initialPosY);
+            currentGuides.push({
+              type: 'horizontal',
+              pos: hostContainer ? boundBottom : canvasHeight - 2,
+              label: hostContainer ? 'Tepi Bawah Kontainer (0px)' : 'Tepi Bawah (0px)'
+            });
+            snappedVertical = true;
+          } else if (movingTop && Math.abs(curEdgeY - boundTop) <= CANVAS_EDGE_SNAP) {
+            rawHeight = Math.max(24, anchorBottom - boundTop);
+            currentGuides.push({
+              type: 'horizontal',
+              pos: hostContainer ? boundTop : 1,
+              label: hostContainer ? 'Tepi Atas Kontainer (0px)' : 'Tepi Atas (0px)'
+            });
+            snappedVertical = true;
+          }
+
+          // 2) Snap Margin/Padding Simetris Atas === Bawah terhadap Kontainer Luar / Kanvas
+          if (!snappedVertical) {
+            if (movingBottom) {
+              const topPad = initialPosY - boundTop;
+              if (topPad > 3 && topPad < boundH / 2 - 14) {
+                const symTargetBottom = boundBottom - topPad;
+                if (Math.abs(curEdgeY - symTargetBottom) <= SNAP_THRESHOLD) {
+                  rawHeight = Math.max(24, symTargetBottom - initialPosY);
+                  currentGuides.push({
+                    type: 'horizontal',
+                    pos: symTargetBottom,
+                    label: `${boundLabelPrefix} Simetris (${Math.round(topPad)}px)`
+                  });
+                  snappedVertical = true;
+                  symMatchedV = true;
+                }
+              }
+            } else if (movingTop) {
+              const bottomPad = boundBottom - anchorBottom;
+              if (bottomPad > 3 && bottomPad < boundH / 2 - 14) {
+                const symTargetTop = boundTop + bottomPad;
+                if (Math.abs(curEdgeY - symTargetTop) <= SNAP_THRESHOLD) {
+                  rawHeight = Math.max(24, anchorBottom - symTargetTop);
+                  currentGuides.push({
+                    type: 'horizontal',
+                    pos: symTargetTop,
+                    label: `${boundLabelPrefix} Simetris (${Math.round(bottomPad)}px)`
+                  });
+                  snappedVertical = true;
+                  symMatchedV = true;
+                }
+              }
+            }
+          }
+
+          // 3) Snap ke Garis Tengah Vertikal Kontainer Luar / Kanvas
+          if (!snappedVertical && Math.abs(curEdgeY - boundMidY) <= SNAP_THRESHOLD) {
+            const targetH = movingBottom ? boundMidY - initialPosY : anchorBottom - boundMidY;
+            if (targetH >= 24) {
+              rawHeight = Math.round(targetH);
+              currentGuides.push({
+                type: 'horizontal',
+                pos: boundMidY,
+                label: hostContainer ? 'Tengah Kontainer' : 'Tengah Kanvas'
+              });
+              snappedVertical = true;
+            }
+          }
+
+          // 4) Snap ke Tepi Elemen Lain atau Tinggi Sama
+          if (!snappedVertical) {
+            let bestDiffY = SNAP_THRESHOLD + 1;
+            let bestH = rawHeight;
+            let guideH: { type: 'horizontal'; pos: number; label: string } | null = null;
+            for (const other of otherElements) {
+              const edgeTargets = [other.posY, other.posY + other.height];
+              for (const targetY of edgeTargets) {
+                const diffEdge = Math.abs(curEdgeY - targetY);
+                const candidateH = movingBottom ? targetY - initialPosY : anchorBottom - targetY;
+                if (diffEdge <= SNAP_THRESHOLD && diffEdge < bestDiffY && candidateH >= 24) {
+                  bestDiffY = diffEdge;
+                  bestH = Math.round(candidateH);
+                  guideH = { type: 'horizontal', pos: targetY, label: 'Sejajar' };
+                }
+              }
+              const diffH = Math.abs(rawHeight - other.height);
+              if (diffH <= SNAP_THRESHOLD && diffH < bestDiffY) {
+                bestDiffY = diffH;
+                bestH = other.height;
+                const targetY = movingTop ? anchorBottom - other.height : initialPosY + other.height;
+                guideH = { type: 'horizontal', pos: targetY, label: `Tinggi Sama (${other.height}px)` };
+              }
+            }
+            if (guideH) {
+              rawHeight = bestH;
+              currentGuides.push(guideH);
+            }
+          }
+        }
+
+        // Clamp posisi & dimensi agar tetap rapi dalam batas kanvas
         let newPosX = initialPosX;
         let newPosY = initialPosY;
-        if (handle === 'sw') {
-          newPosX = Math.max(0, Math.round(initialPosX + (initialWidth - rawWidth)));
-        } else if (handle === 'ne') {
-          newPosY = Math.max(0, Math.round(initialPosY + (initialHeight - rawHeight)));
-        } else if (handle === 'nw') {
-          newPosX = Math.max(0, Math.round(initialPosX + (initialWidth - rawWidth)));
-          newPosY = Math.max(0, Math.round(initialPosY + (initialHeight - rawHeight)));
+        if (movingLeft) {
+          newPosX = Math.max(0, Math.round(anchorRight - rawWidth));
+          rawWidth = Math.max(40, anchorRight - newPosX);
+        } else if (movingRight) {
+          rawWidth = Math.min(CANVAS_DEFAULT_WIDTH - initialPosX, rawWidth);
+        }
+
+        if (movingTop) {
+          newPosY = Math.max(0, Math.round(anchorBottom - rawHeight));
+          rawHeight = Math.max(24, anchorBottom - newPosY);
+        } else if (movingBottom) {
+          rawHeight = Math.min(canvasHeight - initialPosY, rawHeight);
+        }
+
+        // -----------------------------------------------------------------
+        // INDIKATOR JARAK KEDEKATAN TERHADAP KONTAINER LUAR / TEPI KANVAS (PX BARS)
+        // -----------------------------------------------------------------
+        const EDGE_SHOW_THRESHOLD = hostContainer ? Math.max(boundW, boundH) : 160;
+        const marginL = Math.round(newPosX - boundLeft);
+        const marginR = Math.round(boundRight - (newPosX + rawWidth));
+        const marginT = Math.round(newPosY - boundTop);
+        const marginB = Math.round(boundBottom - (newPosY + rawHeight));
+        const midX = newPosX + rawWidth / 2;
+        const midY = newPosY + rawHeight / 2;
+
+        if (!symMatchedH && marginL > 2 && marginR > 2 && marginL === marginR) {
+          symMatchedH = true;
+        }
+        if (!symMatchedV && marginT > 2 && marginB > 2 && marginT === marginB) {
+          symMatchedV = true;
+        }
+
+        if ((movingRight || symMatchedH || hostContainer) && marginR > 0 && marginR <= EDGE_SHOW_THRESHOLD) {
+          currentSpacing.push({
+            orientation: 'horizontal',
+            x1: newPosX + rawWidth,
+            y1: midY,
+            x2: boundRight,
+            y2: midY,
+            distance: marginR,
+            isMatched: symMatchedH
+          });
+        }
+        if ((movingLeft || symMatchedH || hostContainer) && marginL > 0 && marginL <= EDGE_SHOW_THRESHOLD) {
+          currentSpacing.push({
+            orientation: 'horizontal',
+            x1: boundLeft,
+            y1: midY,
+            x2: newPosX,
+            y2: midY,
+            distance: marginL,
+            isMatched: symMatchedH
+          });
+        }
+        if ((movingBottom || symMatchedV || hostContainer) && marginB > 0 && marginB <= EDGE_SHOW_THRESHOLD) {
+          currentSpacing.push({
+            orientation: 'vertical',
+            x1: midX,
+            y1: newPosY + rawHeight,
+            x2: midX,
+            y2: boundBottom,
+            distance: marginB,
+            isMatched: symMatchedV
+          });
+        }
+        if ((movingTop || symMatchedV || hostContainer) && marginT > 0 && marginT <= EDGE_SHOW_THRESHOLD) {
+          currentSpacing.push({
+            orientation: 'vertical',
+            x1: midX,
+            y1: boundTop,
+            x2: midX,
+            y2: newPosY,
+            distance: marginT,
+            isMatched: symMatchedV
+          });
         }
 
         const box = { posX: newPosX, posY: newPosY, width: rawWidth, height: rawHeight };
@@ -892,6 +1197,7 @@ export default function AdvanceCanvasPage({
         rafRef.current = requestAnimationFrame(() => {
           setLiveResize({ id: elementId, ...box, aspectLocked });
           setActiveGuides(currentGuides);
+          setSpacingGuides(currentSpacing);
         });
       }
     };
@@ -960,6 +1266,7 @@ export default function AdvanceCanvasPage({
         resizeRef.current.lastBox = null;
         setLiveResize(null);
         setActiveGuides([]);
+        setSpacingGuides([]);
 
         if (lastBox) {
           onUpdateElementSizeRef.current(elId, lastBox.width, lastBox.height, lastBox.posX, lastBox.posY);
@@ -996,10 +1303,19 @@ export default function AdvanceCanvasPage({
     };
   };
 
-  // Start drag handler (single, Shift+Click multi-select, and group drag!)
+  // Start drag handler (single, Shift+Click multi-select, group selection & group drag!)
   const handleElementMouseDown = (e: React.MouseEvent, el: CanvasElement) => {
+    if (e.button !== 0) return; // Ignore right-click so context menu works cleanly
     e.stopPropagation();
     onSelectCanvas();
+
+    // Helper: expand to full group members when element has a groupId
+    const getGroupMembers = (targetEl: CanvasElement): string[] => {
+      if (!targetEl.groupId) return [targetEl.id];
+      return canvas.elements
+        .filter((item) => item.groupId === targetEl.groupId)
+        .map((item) => item.id);
+    };
 
     let nextSelectedIds: string[];
     if (e.shiftKey) {
@@ -1013,20 +1329,22 @@ export default function AdvanceCanvasPage({
     } else if (selectedElementIds.includes(el.id) && selectedElementIds.length > 1) {
       nextSelectedIds = selectedElementIds;
     } else {
-      nextSelectedIds = [el.id];
+      nextSelectedIds = getGroupMembers(el);
       onSelectElements(nextSelectedIds);
     }
 
     if (editingTextId === el.id) return;
 
     const dragIdSet = new Set(nextSelectedIds);
-    const dragItems = canvas.elements
-      .filter((item) => dragIdSet.has(item.id))
-      .map((item) => ({
-        id: item.id,
-        initialPosX: item.posX,
-        initialPosY: item.posY
-      }));
+    const selectedItems = canvas.elements.filter((item) => dragIdSet.has(item.id));
+    // Skip dragging if any selected element in the drag is locked
+    if (selectedItems.some((item) => item.locked)) return;
+
+    const dragItems = selectedItems.map((item) => ({
+      id: item.id,
+      initialPosX: item.posX,
+      initialPosY: item.posY
+    }));
 
     dragRef.current = {
       isDragging: true,
@@ -1042,6 +1360,68 @@ export default function AdvanceCanvasPage({
       lastDx: 0,
       lastDy: 0
     };
+  };
+
+  // Right-click handler on an element (supports single & multi-select seamlessly!)
+  const handleElementContextMenu = (e: React.MouseEvent, el: CanvasElement) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onSelectCanvas();
+
+    // If right-clicked element is NOT currently selected, select it (and its group peers)
+    if (!selectedElementIds.includes(el.id)) {
+      if (el.groupId) {
+        const groupIds = canvas.elements
+          .filter((item) => item.groupId === el.groupId)
+          .map((item) => item.id);
+        onSelectElements(groupIds);
+      } else {
+        onSelectElements([el.id]);
+      }
+    }
+
+    let canvasX: number | undefined;
+    let canvasY: number | undefined;
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const zoom = zoomRef.current || 1;
+      canvasX = Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 40, Math.round((e.clientX - rect.left) / zoom)));
+      canvasY = Math.max(0, Math.min(canvasHeightRef.current - 24, Math.round((e.clientY - rect.top) / zoom)));
+    }
+
+    onOpenContextMenu?.({
+      x: e.clientX,
+      y: e.clientY,
+      canvasId: canvas.id,
+      canvasX,
+      canvasY,
+      mode: 'element'
+    });
+  };
+
+  // Right-click handler on empty canvas area
+  const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    e.preventDefault();
+    onSelectCanvas();
+
+    let canvasX: number | undefined;
+    let canvasY: number | undefined;
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const zoom = zoomRef.current || 1;
+      canvasX = Math.max(0, Math.min(CANVAS_DEFAULT_WIDTH - 40, Math.round((e.clientX - rect.left) / zoom)));
+      canvasY = Math.max(0, Math.min(canvasHeightRef.current - 24, Math.round((e.clientY - rect.top) / zoom)));
+    }
+
+    onOpenContextMenu?.({
+      x: e.clientX,
+      y: e.clientY,
+      canvasId: canvas.id,
+      canvasX,
+      canvasY,
+      mode: 'canvas'
+    });
   };
 
   // Start resize handler
@@ -1085,15 +1465,55 @@ export default function AdvanceCanvasPage({
       {/* ----------------------------------------------------------------- */}
       <div className="w-[1000px] mb-2 px-3 py-1.5 flex items-center justify-between text-xs text-slate-600 bg-white/90 backdrop-blur-xs rounded-xl border border-slate-200/80 shadow-2xs">
         <div className="flex items-center gap-2.5">
-          <span
-            className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black tracking-wide ${
-              isActive
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 text-slate-700'
-            }`}
-          >
-            {canvas.title || `Kanvas ${canvas.pageIndex}`}
-          </span>
+          {isEditingTitle ? (
+            <input
+              type="text"
+              autoFocus
+              value={draftTitle}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              onBlur={() => {
+                setIsEditingTitle(false);
+                if (onRenameCanvas && draftTitle.trim() !== (canvas.title || `Kanvas ${canvas.pageIndex}`)) {
+                  onRenameCanvas(canvas.id, draftTitle);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  setIsEditingTitle(false);
+                  if (onRenameCanvas) {
+                    onRenameCanvas(canvas.id, draftTitle);
+                  }
+                } else if (e.key === 'Escape') {
+                  setIsEditingTitle(false);
+                  setDraftTitle(canvas.title || `Kanvas ${canvas.pageIndex}`);
+                }
+              }}
+              className="px-2.5 py-0.5 rounded-lg text-[11px] font-black tracking-wide bg-white text-blue-700 border-2 border-blue-500 focus:outline-none shadow-xs w-44"
+              placeholder={`Kanvas ${canvas.pageIndex}`}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectCanvas();
+                setDraftTitle(canvas.title || `Kanvas ${canvas.pageIndex}`);
+                setIsEditingTitle(true);
+              }}
+              className={`group/title px-2.5 py-0.5 rounded-lg text-[11px] font-black tracking-wide flex items-center gap-1.5 transition cursor-text ${
+                isActive
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+              title="Klik untuk ubah nama kanvas"
+            >
+              <span>{canvas.title || `Kanvas ${canvas.pageIndex}`}</span>
+              <Edit3 className="w-3 h-3 opacity-60 group-hover/title:opacity-100 transition" />
+            </button>
+          )}
           <span className="text-slate-400 text-[11px]">
             Halaman {canvas.pageIndex} dari {allCanvases.length}
           </span>
@@ -1201,6 +1621,7 @@ export default function AdvanceCanvasPage({
         ref={canvasRef}
         id={canvas.id}
         onMouseDown={handleCanvasMouseDown}
+        onContextMenu={handleCanvasContextMenu}
         onClick={(e) => {
           if (hasJustDraggedRef.current) return;
           if (e.target === e.currentTarget) {
@@ -1232,6 +1653,7 @@ export default function AdvanceCanvasPage({
         {/* ============================================================= */}
         {activeGuides.map((guide, idx) => {
           if (guide.type === 'vertical') {
+            const nearRightEdge = guide.pos > CANVAS_DEFAULT_WIDTH - 140;
             return (
               <div
                 key={`guide-v-${idx}-${guide.pos}`}
@@ -1239,13 +1661,18 @@ export default function AdvanceCanvasPage({
                 className="absolute top-0 bottom-0 w-0.5 bg-blue-500 z-40 pointer-events-none shadow-[0_0_8px_rgba(37,99,235,0.85)] animate-in fade-in duration-75"
               >
                 {guide.label && (
-                  <span className="absolute top-2.5 left-1.5 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-md pointer-events-none tracking-tight uppercase whitespace-nowrap">
+                  <span
+                    className={`absolute top-2.5 ${
+                      nearRightEdge ? 'right-1.5' : 'left-1.5'
+                    } bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-md pointer-events-none tracking-tight uppercase whitespace-nowrap`}
+                  >
                     {guide.label}
                   </span>
                 )}
               </div>
             );
           } else {
+            const nearBottomEdge = guide.pos > (canvas.height || CANVAS_DEFAULT_HEIGHT) - 36;
             return (
               <div
                 key={`guide-h-${idx}-${guide.pos}`}
@@ -1253,7 +1680,11 @@ export default function AdvanceCanvasPage({
                 className="absolute left-0 right-0 h-0.5 bg-blue-500 z-40 pointer-events-none shadow-[0_0_8px_rgba(37,99,235,0.85)] animate-in fade-in duration-75"
               >
                 {guide.label && (
-                  <span className="absolute left-2.5 top-1.5 bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-md pointer-events-none tracking-tight uppercase whitespace-nowrap">
+                  <span
+                    className={`absolute left-2.5 ${
+                      nearBottomEdge ? 'bottom-1.5' : 'top-1.5'
+                    } bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-md pointer-events-none tracking-tight uppercase whitespace-nowrap`}
+                  >
                     {guide.label}
                   </span>
                 )}
@@ -1323,22 +1754,6 @@ export default function AdvanceCanvasPage({
           }
         })}
 
-        {/* LIVE RESIZE DIMENSION / SHIFT-LOCK INDICATOR */}
-        {liveResize && (
-          <div
-            style={{
-              left: `${Math.min(CANVAS_DEFAULT_WIDTH - 160, liveResize.posX + liveResize.width / 2)}px`,
-              top: `${Math.max(8, liveResize.posY - 34)}px`
-            }}
-            className={`absolute -translate-x-1/2 z-50 px-2.5 py-1 rounded-full text-[10px] font-extrabold font-mono text-white shadow-lg pointer-events-none whitespace-nowrap ${
-              liveResize.aspectLocked ? 'bg-blue-600 ring-2 ring-cyan-300' : 'bg-slate-900/90'
-            }`}
-          >
-            {liveResize.aspectLocked ? '🔒 Proporsional • ' : ''}
-            {liveResize.width} × {liveResize.height}px
-          </div>
-        )}
-
         {/* ============================================================= */}
         {/* MARQUEE MULTI-SELECT BOX (KOTAK TRANSPARAN ALA CANVA)         */}
         {/* ============================================================= */}
@@ -1374,12 +1789,14 @@ export default function AdvanceCanvasPage({
             <div
               key={el.id}
               onMouseDown={(e) => handleElementMouseDown(e, el)}
+              onContextMenu={(e) => handleElementContextMenu(e, el)}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelectCanvas();
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation();
+                if (el.locked) return;
                 if (category === 'TEXT') {
                   setEditingTextId(el.id);
                 } else if (category === 'NAV') {
@@ -1399,13 +1816,17 @@ export default function AdvanceCanvasPage({
                   : undefined,
                 willChange: isDraggingThis || isResizingThis ? 'transform' : undefined
               }}
-              className={`group/el cursor-move ${
+              className={`group/el ${el.locked ? 'cursor-default' : 'cursor-move'} ${
                 isDraggingThis || isResizingThis ? '' : 'transition-shadow'
               } ${
                 recentlyAddedElementId === el.id
                   ? 'animate-in fade-in zoom-in-95 duration-300 ring-2 ring-cyan-400 shadow-[0_0_24px_rgba(37,99,235,0.35)] z-30'
                   : isSelected
-                  ? 'ring-2 ring-blue-500 shadow-xl z-30'
+                  ? el.locked
+                    ? 'ring-2 ring-amber-500 shadow-lg z-30'
+                    : el.groupId
+                    ? 'ring-2 ring-indigo-500 shadow-xl z-30'
+                    : 'ring-2 ring-blue-500 shadow-xl z-30'
                   : 'hover:ring-1 hover:ring-blue-400/60 z-10'
               }`}
             >
@@ -1430,7 +1851,21 @@ export default function AdvanceCanvasPage({
                       isNearTop ? 'top-full mt-2.5' : '-top-11'
                     } ${horizontalPos} bg-white rounded-full shadow-xl border border-slate-200/90 py-1 px-2.5 flex items-center gap-1.5 z-50 select-none animate-in fade-in zoom-in-95 duration-100 whitespace-nowrap`}
                   >
-                    {el.category === 'PRODUCT' && (
+                    {el.locked && onToggleLockElement && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleLockElement(el.id);
+                        }}
+                        className="px-2 py-1 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-[11px] font-bold flex items-center gap-1 transition active:scale-95"
+                        title="Buka Kunci Elemen (Alt+Shift+L)"
+                      >
+                        <Lock className="w-3 h-3" />
+                        <span>Buka Kunci</span>
+                      </button>
+                    )}
+                    {!el.locked && el.category === 'PRODUCT' && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1456,7 +1891,7 @@ export default function AdvanceCanvasPage({
                         <Copy className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    {onDeleteElement && (
+                    {!el.locked && onDeleteElement && (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1621,181 +2056,286 @@ export default function AdvanceCanvasPage({
               })()}
 
               {/* ========================================================= */}
-              {/* RENDER KATEGORI: KARTU PRODUK (AC-PRD-01..04)             */}
+              {/* RENDER KATEGORI: KARTU PRODUK (5 VARIAN DESAIN BERBEDA)   */}
               {/* ========================================================= */}
-              {category === 'PRODUCT' && properties.cardData && (
-                <div
-                  style={{ backgroundColor: color || '#ffffff' }}
-                  className="w-full h-full rounded-2xl shadow-md border border-slate-200/90 p-4 flex flex-col justify-between overflow-hidden"
-                >
-                  {/* Slot 1: Slot Gambar Produk (AC-PRD-04: Klik untuk trigger upload) */}
+              {category === 'PRODUCT' && properties.cardData && (() => {
+                const cd = properties.cardData;
+                const variant = cd.cardVariant || 'modern';
+                const isHorizontal = variant === 'warm';
+                const isBadge = variant === 'badge';
+                const isMinimal = variant === 'minimal';
+                const isDark = variant === 'dark';
+
+                const cardOuterClass = isMinimal
+                  ? 'rounded-none border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] p-3.5 flex flex-col justify-between'
+                  : isDark
+                  ? 'rounded-3xl border border-indigo-500/40 shadow-2xl p-4 flex flex-col justify-between'
+                  : isBadge
+                  ? 'rounded-2xl border border-emerald-200/90 shadow-lg p-0 flex flex-col justify-between'
+                  : isHorizontal
+                  ? 'rounded-2xl border border-amber-200 shadow-md p-3 flex flex-row gap-3.5 items-stretch'
+                  : 'rounded-2xl border border-slate-200/90 shadow-md p-4 flex flex-col justify-between';
+
+                const imgWrapperClass = isMinimal
+                  ? 'relative w-full h-[54%] rounded-none overflow-hidden bg-slate-100 border border-slate-900 group/slot cursor-pointer'
+                  : isDark
+                  ? 'relative w-full h-[52%] rounded-2xl overflow-hidden bg-slate-800 border border-slate-700/80 group/slot cursor-pointer'
+                  : isBadge
+                  ? 'relative w-full h-[54%] rounded-none overflow-hidden bg-emerald-50 group/slot cursor-pointer'
+                  : isHorizontal
+                  ? 'relative w-[44%] h-full rounded-xl overflow-hidden bg-amber-100 border border-amber-200/80 group/slot cursor-pointer shrink-0'
+                  : 'relative w-full h-[52%] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 group/slot cursor-pointer';
+
+                const contentWrapperClass = isBadge
+                  ? 'p-3.5 flex-1 flex flex-col justify-between'
+                  : isHorizontal
+                  ? 'py-0.5 flex-1 flex flex-col justify-between min-w-0'
+                  : 'pt-2.5 flex-1 flex flex-col justify-between';
+
+                const titleClass = isDark
+                  ? 'font-extrabold text-sm text-white line-clamp-1 cursor-text hover:text-cyan-300 transition-colors'
+                  : isMinimal
+                  ? 'font-black text-xs uppercase tracking-wider text-slate-900 line-clamp-1 cursor-text hover:text-slate-600 transition-colors'
+                  : isHorizontal
+                  ? 'font-black text-sm text-amber-950 line-clamp-1 cursor-text hover:text-amber-700 transition-colors'
+                  : 'font-extrabold text-sm text-slate-900 line-clamp-1 cursor-text hover:text-blue-600 transition-colors';
+
+                const descClass = isDark
+                  ? 'text-[11px] text-slate-300 line-clamp-2 mt-1 leading-snug cursor-text hover:text-white transition-colors'
+                  : isHorizontal
+                  ? 'text-[11px] text-amber-900/75 line-clamp-2 mt-1 leading-snug cursor-text hover:text-amber-950 transition-colors'
+                  : 'text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug cursor-text hover:text-slate-800 transition-colors';
+
+                const priceClass = isDark
+                  ? 'font-black text-xs text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30 shrink-0 cursor-text'
+                  : isMinimal
+                  ? 'font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 border border-slate-900 shrink-0 cursor-text'
+                  : isHorizontal
+                  ? 'font-black text-xs text-amber-900 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-300 shrink-0 cursor-text'
+                  : 'font-black text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 cursor-text hover:border-emerald-400 transition-colors';
+
+                const resolvedBtnColor =
+                  cd.buttonColor ||
+                  (isBadge ? '#059669' : isHorizontal ? '#b45309' : isMinimal ? '#0f172a' : isDark ? '#6366f1' : '#2563eb');
+
+                const btnRadiusClass = isMinimal
+                  ? 'rounded-none uppercase tracking-wider'
+                  : isBadge || isDark
+                  ? 'rounded-full'
+                  : 'rounded-xl';
+
+                return (
                   <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTriggerImageUploadForElement(el.id);
-                    }}
-                    className="relative w-full h-[52%] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 group/slot cursor-pointer"
-                    title="Klik untuk mengganti foto produk"
+                    style={{ backgroundColor: color || (isDark ? '#0f172a' : isHorizontal ? '#fffbeb' : '#ffffff') }}
+                    className={`w-full h-full overflow-hidden ${cardOuterClass}`}
                   >
-                    <img
-                      src={properties.cardData.image}
-                      alt={properties.cardData.title}
-                      className="w-full h-full object-cover group-hover/slot:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-blue-950/40 opacity-0 group-hover/slot:opacity-100 flex items-center justify-center text-white text-xs font-bold transition">
-                      <Upload className="w-4 h-4 mr-1" /> Ganti Foto
+                    {/* Slot 1: Slot Gambar Produk */}
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onTriggerImageUploadForElement(el.id);
+                      }}
+                      className={imgWrapperClass}
+                      title="Klik untuk mengganti foto produk"
+                    >
+                      <img
+                        src={cd.image}
+                        alt={cd.title}
+                        className="w-full h-full object-cover group-hover/slot:scale-105 transition-transform duration-300"
+                      />
+                      {/* Floating Badge untuk Varian Unggulan / Minimal / Dark / Warm */}
+                      {cd.badgeText && (
+                        <span
+                          className={`absolute top-2 left-2 px-2.5 py-0.5 text-[10px] font-black shadow-md pointer-events-none ${
+                            isBadge
+                              ? 'rounded-full bg-emerald-600 text-white'
+                              : isMinimal
+                              ? 'rounded-none bg-slate-900 text-white tracking-widest'
+                              : isDark
+                              ? 'rounded-full bg-amber-400 text-slate-950 tracking-wider'
+                              : 'rounded-lg bg-amber-600 text-white'
+                          }`}
+                        >
+                          {cd.badgeText}
+                        </span>
+                      )}
+                      {/* Floating Price Pill pada Varian Badge Full-Bleed */}
+                      {isBadge && (
+                        <span
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProductField({ elementId: el.id, field: 'price' });
+                          }}
+                          className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-white/95 text-emerald-700 font-black text-xs shadow-md border border-emerald-200"
+                        >
+                          {cd.price || 'Rp 0'}
+                        </span>
+                      )}
+                      <div className="absolute inset-0 bg-blue-950/40 opacity-0 group-hover/slot:opacity-100 flex items-center justify-center text-white text-xs font-bold transition">
+                        <Upload className="w-4 h-4 mr-1" /> Ganti Foto
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Slot 2 & 3: Teks Judul & Deskripsi / Harga (100% Identik dengan Mode Preview + Inline Editable) */}
-                  <div className="pt-2 flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        {editingProductField?.elementId === el.id && editingProductField?.field === 'title' ? (
-                          <input
+                    {/* Slot 2 & 3: Teks Judul, Harga, Deskripsi & Tombol CTA */}
+                    <div className={contentWrapperClass}>
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          {editingProductField?.elementId === el.id && editingProductField?.field === 'title' ? (
+                            <input
+                              autoFocus
+                              type="text"
+                              defaultValue={cd.title}
+                              spellCheck={false}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onBlur={(e) => {
+                                onUpdateProductCardText(el.id, { title: e.target.value });
+                                setEditingProductField(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  onUpdateProductCardText(el.id, { title: (e.target as HTMLInputElement).value });
+                                  setEditingProductField(null);
+                                }
+                              }}
+                              className="font-extrabold text-sm text-slate-900 bg-white border border-blue-500 rounded px-1.5 py-0.5 outline-none shadow-xs flex-1"
+                            />
+                          ) : (
+                            <h4
+                              onDoubleClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProductField({ elementId: el.id, field: 'title' });
+                              }}
+                              className={titleClass}
+                              title="Klik ganda untuk menyunting judul produk"
+                            >
+                              {cd.title}
+                            </h4>
+                          )}
+
+                          {!isBadge && (
+                            editingProductField?.elementId === el.id && editingProductField?.field === 'price' ? (
+                              <input
+                                autoFocus
+                                type="text"
+                                defaultValue={cd.price || ''}
+                                spellCheck={false}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onBlur={(e) => {
+                                  onUpdateProductCardText(el.id, { price: e.target.value });
+                                  setEditingProductField(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    onUpdateProductCardText(el.id, { price: (e.target as HTMLInputElement).value });
+                                    setEditingProductField(null);
+                                  }
+                                }}
+                                className="font-black text-xs text-emerald-700 bg-white border border-emerald-500 rounded px-1.5 py-0.5 outline-none shadow-xs w-24 text-center shrink-0"
+                              />
+                            ) : (
+                              <span
+                                onDoubleClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingProductField({ elementId: el.id, field: 'price' });
+                                }}
+                                className={priceClass}
+                                title="Klik ganda untuk menyunting harga produk"
+                              >
+                                {cd.price || 'Rp 0'}
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        {editingProductField?.elementId === el.id && editingProductField?.field === 'description' ? (
+                          <textarea
                             autoFocus
-                            type="text"
-                            defaultValue={properties.cardData.title}
+                            defaultValue={cd.description || ''}
                             spellCheck={false}
+                            rows={2}
                             onClick={(e) => e.stopPropagation()}
                             onMouseDown={(e) => e.stopPropagation()}
                             onBlur={(e) => {
-                              onUpdateProductCardText(el.id, { title: e.target.value });
+                              onUpdateProductCardText(el.id, { description: e.target.value });
                               setEditingProductField(null);
                             }}
                             onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                onUpdateProductCardText(el.id, { title: (e.target as HTMLInputElement).value });
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                onUpdateProductCardText(el.id, { description: (e.target as HTMLTextAreaElement).value });
                                 setEditingProductField(null);
                               }
                             }}
-                            className="font-extrabold text-sm text-slate-900 bg-white border border-blue-500 rounded px-1.5 py-0.5 outline-none shadow-xs flex-1"
+                            className="text-[11px] text-slate-700 bg-white border border-blue-500 rounded px-1.5 py-1 outline-none shadow-xs w-full resize-none leading-snug mt-1"
                           />
                         ) : (
-                          <h4
+                          <p
                             onDoubleClick={(e) => {
                               e.stopPropagation();
-                              setEditingProductField({ elementId: el.id, field: 'title' });
+                              setEditingProductField({ elementId: el.id, field: 'description' });
                             }}
-                            className="font-extrabold text-sm text-slate-900 line-clamp-1 cursor-text hover:text-blue-600 transition-colors"
-                            title="Klik ganda untuk menyunting judul produk"
+                            className={descClass}
+                            title="Klik ganda untuk menyunting deskripsi produk"
                           >
-                            {properties.cardData.title}
-                          </h4>
-                        )}
-
-                        {editingProductField?.elementId === el.id && editingProductField?.field === 'price' ? (
-                          <input
-                            autoFocus
-                            type="text"
-                            defaultValue={properties.cardData.price || ''}
-                            spellCheck={false}
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onBlur={(e) => {
-                              onUpdateProductCardText(el.id, { price: e.target.value });
-                              setEditingProductField(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                onUpdateProductCardText(el.id, { price: (e.target as HTMLInputElement).value });
-                                setEditingProductField(null);
-                              }
-                            }}
-                            className="font-black text-xs text-emerald-700 bg-white border border-emerald-500 rounded px-1.5 py-0.5 outline-none shadow-xs w-24 text-center shrink-0"
-                          />
-                        ) : (
-                          <span
-                            onDoubleClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProductField({ elementId: el.id, field: 'price' });
-                            }}
-                            className="font-black text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0 cursor-text hover:border-emerald-400 transition-colors"
-                            title="Klik ganda untuk menyunting harga produk"
-                          >
-                            {properties.cardData.price || 'Rp 0'}
-                          </span>
+                            {cd.description}
+                          </p>
                         )}
                       </div>
 
-                      {editingProductField?.elementId === el.id && editingProductField?.field === 'description' ? (
-                        <textarea
-                          autoFocus
-                          defaultValue={properties.cardData.description || ''}
-                          spellCheck={false}
-                          rows={2}
-                          onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onBlur={(e) => {
-                            onUpdateProductCardText(el.id, { description: e.target.value });
-                            setEditingProductField(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              onUpdateProductCardText(el.id, { description: (e.target as HTMLTextAreaElement).value });
-                              setEditingProductField(null);
-                            }
-                          }}
-                          className="text-[11px] text-slate-700 bg-white border border-blue-500 rounded px-1.5 py-1 outline-none shadow-xs w-full resize-none leading-snug mt-1"
-                        />
-                      ) : (
-                        <p
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            setEditingProductField({ elementId: el.id, field: 'description' });
-                          }}
-                          className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug cursor-text hover:text-slate-800 transition-colors"
-                          title="Klik ganda untuk menyunting deskripsi produk"
-                        >
-                          {properties.cardData.description}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Slot 4: Satu Tombol Aksi (CTA Button) */}
-                    <div className="pt-2">
-                      {editingProductField?.elementId === el.id && editingProductField?.field === 'buttonText' ? (
-                        <div className="w-full py-2 px-3 rounded-xl bg-blue-600 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5">
-                          <input
-                            autoFocus
-                            type="text"
-                            defaultValue={properties.cardData.buttonText || 'Pesan Sekarang'}
-                            spellCheck={false}
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onBlur={(e) => {
-                              onUpdateProductCardText(el.id, { buttonText: e.target.value });
-                              setEditingProductField(null);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                onUpdateProductCardText(el.id, { buttonText: (e.target as HTMLInputElement).value });
+                      {/* Slot 4: Tombol Aksi (CTA Button) */}
+                      <div className="pt-2">
+                        {editingProductField?.elementId === el.id && editingProductField?.field === 'buttonText' ? (
+                          <div
+                            style={{ backgroundColor: resolvedBtnColor }}
+                            className={`w-full py-2 px-3 ${btnRadiusClass} text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5`}
+                          >
+                            <input
+                              autoFocus
+                              type="text"
+                              defaultValue={cd.buttonText || 'Pesan Sekarang'}
+                              spellCheck={false}
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onBlur={(e) => {
+                                onUpdateProductCardText(el.id, { buttonText: e.target.value });
                                 setEditingProductField(null);
-                              }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  onUpdateProductCardText(el.id, { buttonText: (e.target as HTMLInputElement).value });
+                                  setEditingProductField(null);
+                                }
+                              }}
+                              className="bg-transparent text-white text-center font-extrabold text-xs outline-none border-b border-white w-full"
+                            />
+                            <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProductField({ elementId: el.id, field: 'buttonText' });
                             }}
-                            className="bg-transparent text-white text-center font-extrabold text-xs outline-none border-b border-white w-full"
-                          />
-                          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            setEditingProductField({ elementId: el.id, field: 'buttonText' });
-                          }}
-                          className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition active:scale-98"
-                          title="Klik ganda untuk menyunting teks tombol CTA"
-                        >
-                          <span>{properties.cardData.buttonText || 'Pesan Sekarang'}</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                            style={{
+                              background: isDark
+                                ? 'linear-gradient(90deg, #4f46e5 0%, #2563eb 100%)'
+                                : resolvedBtnColor
+                            }}
+                            className={`w-full py-2 px-3 ${btnRadiusClass} hover:opacity-95 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition active:scale-98`}
+                            title="Klik ganda untuk menyunting teks tombol CTA"
+                          >
+                            <span>{cd.buttonText || 'Pesan Sekarang'}</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* ========================================================= */}
               {/* RENDER KATEGORI: TOMBOL (AC-BTN-01..03)                   */}
@@ -1907,7 +2447,7 @@ export default function AdvanceCanvasPage({
               {/* ========================================================= */}
               {/* RESIZE HANDLES (Section 4 Resize Item - White/Blue Canva) */}
               {/* ========================================================= */}
-              {isSingleSelected && !isDraggingThis && (
+              {isSingleSelected && !isDraggingThis && !el.locked && (
                 <>
                   {/* Top-Left Handle (NW) */}
                   <div
@@ -1993,13 +2533,12 @@ export default function AdvanceCanvasPage({
               />
             </svg>
 
-            {/* Floating Live Action Tag */}
+            {/* Floating Live Action Tag (Kursor + Nama AI + Aksi) */}
             <div
               className={`mt-0.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-600 to-cyan-500 text-white text-[11px] font-extrabold shadow-2xl border border-white/40 whitespace-nowrap flex items-center gap-1.5 ${
                 aiCursor.x > 680 ? '-translate-x-full -ml-2' : 'ml-5'
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-200 animate-spin" />
               <span>NexaWeb AI</span>
               <span className="opacity-60">•</span>
               <span className="font-semibold text-blue-50">{aiCursor.label}</span>

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Check, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Check, Crown, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export default function PricingSection() {
   const plans = [
@@ -22,7 +22,7 @@ export default function PricingSection() {
       ]
     },
     {
-      name: 'UMKM Pro',
+      name: 'Pro',
       tagline: 'Pilihan terbaik untuk bisnis yang siap tumbuh online',
       price: 'Rp 49.000',
       period: 'per bulan (hemat Rp 390rb/tahun)',
@@ -86,7 +86,7 @@ export default function PricingSection() {
               {p.highlight && p.badge && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-600 text-white shadow-md flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Crown className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
                     {p.badge}
                   </span>
                 </div>

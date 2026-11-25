@@ -196,20 +196,77 @@ body {
         `;
       } else if (category === 'PRODUCT' && properties.cardData) {
         const c = properties.cardData;
+        const variant = c.cardVariant || 'modern';
+        const isHorizontal = variant === 'warm';
+        const isBadge = variant === 'badge';
+        const isMinimal = variant === 'minimal';
+        const isDark = variant === 'dark';
+
+        const resolvedCanvasTarget = properties.targetCanvasId || c.targetCanvasId;
+        let productHref = c.buttonLink || '#';
+        let isInternalAnchor = false;
+        if (properties.linkType === 'canvas' && resolvedCanvasTarget) {
+          productHref = `#canvas-${resolvedCanvasTarget}`;
+          isInternalAnchor = true;
+        } else if (properties.linkType === 'wa' && properties.waNumber) {
+          const cleanPhone = properties.waNumber.replace(/[^0-9]/g, '');
+          const formattedPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
+          const msg = `Halo, saya ingin memesan ${c.title || 'produk ini'}.`;
+          productHref = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
+        } else if (properties.linkType === 'url' && properties.linkUrl) {
+          productHref = properties.linkUrl;
+        }
+
+        const bg = color || (isDark ? '#0f172a' : isHorizontal ? '#fffbeb' : '#ffffff');
+        const radius = isMinimal ? '0px' : isDark ? '1.5rem' : '1rem';
+        const border = isMinimal
+          ? '2px solid #0f172a'
+          : isDark
+          ? '1px solid rgba(99,102,241,0.4)'
+          : isHorizontal
+          ? '1px solid #fde68a'
+          : isBadge
+          ? '1px solid #a7f3d0'
+          : '1px solid #e2e8f0';
+        const shadow = isMinimal ? '4px 4px 0px #0f172a' : '0 10px 25px -5px rgba(15,23,42,0.12)';
+        const padding = isBadge ? '0px' : isHorizontal ? '0.75rem' : '1rem';
+        const flexDir = isHorizontal ? 'row; gap: 0.875rem;' : 'column;';
+        const imgBoxStyle = isHorizontal
+          ? 'position: relative; width: 44%; height: 100%; border-radius: 0.75rem; overflow: hidden; flex-shrink: 0;'
+          : `position: relative; width: 100%; height: 53%; border-radius: ${isMinimal || isBadge ? '0px' : '0.75rem'}; overflow: hidden;`;
+        const contentPad = isBadge ? '0.875rem' : isHorizontal ? '0.125rem 0' : '0.625rem 0 0 0';
+        const titleColor = isDark ? '#ffffff' : isHorizontal ? '#451a03' : '#0f172a';
+        const descColor = isDark ? '#cbd5e1' : isHorizontal ? '#92400e' : '#64748b';
+        const btnBg = isDark
+          ? 'linear-gradient(90deg, #4f46e5 0%, #2563eb 100%)'
+          : c.buttonColor || (isBadge ? '#059669' : isHorizontal ? '#b45309' : isMinimal ? '#0f172a' : '#2563eb');
+        const btnRadius = isMinimal ? '0px' : isBadge || isDark ? '9999px' : '0.75rem';
+        const badgeHtml = c.badgeText
+          ? `<span style="position: absolute; top: 8px; left: 8px; padding: 2px 10px; font-size: 10px; font-weight: 900; border-radius: ${isMinimal ? '0px' : '9999px'}; background: ${isDark ? '#fbbf24' : isMinimal ? '#0f172a' : isHorizontal ? '#d97706' : '#059669'}; color: ${isDark ? '#0f172a' : '#ffffff'};">${c.badgeText}</span>`
+          : '';
+        const floatingPriceHtml = isBadge
+          ? `<span style="position: absolute; bottom: 8px; right: 8px; padding: 2px 10px; font-size: 12px; font-weight: 900; border-radius: 9999px; background: rgba(255,255,255,0.95); color: #047857;">${c.price || ''}</span>`
+          : '';
+        const inlinePriceHtml = !isBadge
+          ? `<span style="font-size: 0.75rem; font-weight: 800; color: ${isDark ? '#fcd34d' : isMinimal ? '#0f172a' : isHorizontal ? '#78350f' : '#047857'}; background: ${isDark ? 'rgba(251,191,36,0.15)' : isMinimal ? '#f1f5f9' : isHorizontal ? '#fef3c7' : '#ecfdf5'}; padding: 0.125rem 0.5rem; border-radius: ${isMinimal ? '0px' : '0.375rem'};">${c.price || ''}</span>`
+          : '';
+
         elementsHtml += `
-          <div class="canvas-element product-card" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${properties.opacity !== undefined ? properties.opacity : 1}; background-color: ${color || '#ffffff'};">
-            <div style="width: 100%; height: 52%; border-radius: 0.75rem; overflow: hidden; background-color: #f1f5f9;">
+          <div class="canvas-element product-card" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${properties.opacity !== undefined ? properties.opacity : 1}; background-color: ${bg}; border-radius: ${radius}; border: ${border}; box-shadow: ${shadow}; padding: ${padding}; display: flex; flex-direction: ${flexDir}; justify-content: space-between; overflow: hidden; box-sizing: border-box;">
+            <div style="${imgBoxStyle} background-color: #f1f5f9;">
               <img src="${c.image}" alt="${c.title}" style="width: 100%; height: 100%; object-fit: cover;" />
+              ${badgeHtml}
+              ${floatingPriceHtml}
             </div>
-            <div style="padding-top: 0.5rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+            <div style="padding: ${contentPad}; flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
               <div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
-                  <h4 style="font-size: 0.875rem; font-weight: 800; color: #0f172a; margin: 0;">${c.title}</h4>
-                  <span style="font-size: 0.75rem; font-weight: 800; color: #047857; background: #ecfdf5; padding: 0.125rem 0.5rem; border-radius: 0.25rem;">${c.price || ''}</span>
+                  <h4 style="font-size: 0.875rem; font-weight: 800; color: ${titleColor}; margin: 0; ${isMinimal ? 'text-transform: uppercase; letter-spacing: 0.05em;' : ''}">${c.title}</h4>
+                  ${inlinePriceHtml}
                 </div>
-                <p style="font-size: 0.6875rem; color: #64748b; margin-top: 0.25rem; line-height: 1.3;">${c.description}</p>
+                <p style="font-size: 0.6875rem; color: ${descColor}; margin-top: 0.25rem; line-height: 1.3;">${c.description}</p>
               </div>
-              <a href="${c.buttonLink || '#'}" target="_blank" style="display: block; width: 100%; padding: 0.5rem; text-align: center; border-radius: 0.75rem; background-color: #2563eb; color: #ffffff; font-size: 0.75rem; font-weight: 800; text-decoration: none;">
+              <a href="${productHref}" ${isInternalAnchor ? '' : 'target="_blank"'} style="display: block; width: 100%; padding: 0.5rem; text-align: center; border-radius: ${btnRadius}; background: ${btnBg}; color: #ffffff; font-size: 0.75rem; font-weight: 800; text-decoration: none; ${isMinimal ? 'text-transform: uppercase; letter-spacing: 0.05em;' : ''}">
                 ${c.buttonText || 'Pesan Sekarang'} &rarr;
               </a>
             </div>

@@ -224,50 +224,148 @@ export default function AdvancePreviewModal({
                     );
                   })()}
 
-                  {/* PRODUCT */}
-                  {category === 'PRODUCT' && properties.cardData && (
-                    <div
-                      style={{ backgroundColor: color || '#ffffff' }}
-                      className="w-full h-full rounded-2xl shadow-lg border border-slate-200/90 p-4 flex flex-col justify-between overflow-hidden"
-                    >
-                      <div className="w-full h-[52%] rounded-xl overflow-hidden bg-slate-100">
-                        <img
-                          src={properties.cardData.image}
-                          alt={properties.cardData.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="pt-2 flex-1 flex flex-col justify-between">
-                        <div>
-                          <div className="flex items-start justify-between gap-2">
-                            <h4 className="font-extrabold text-sm text-slate-900 line-clamp-1">
-                              {properties.cardData.title}
-                            </h4>
-                            <span className="font-black text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0">
-                              {properties.cardData.price || 'Rp 0'}
+                  {/* PRODUCT (5 Varian Desain) */}
+                  {category === 'PRODUCT' && properties.cardData && (() => {
+                    const cd = properties.cardData;
+                    const variant = cd.cardVariant || 'modern';
+                    const isHorizontal = variant === 'warm';
+                    const isBadge = variant === 'badge';
+                    const isMinimal = variant === 'minimal';
+                    const isDark = variant === 'dark';
+
+                    const cardOuterClass = isMinimal
+                      ? 'rounded-none border-2 border-slate-900 shadow-[4px_4px_0px_#0f172a] p-3.5 flex flex-col justify-between'
+                      : isDark
+                      ? 'rounded-3xl border border-indigo-500/40 shadow-2xl p-4 flex flex-col justify-between'
+                      : isBadge
+                      ? 'rounded-2xl border border-emerald-200/90 shadow-lg p-0 flex flex-col justify-between'
+                      : isHorizontal
+                      ? 'rounded-2xl border border-amber-200 shadow-md p-3 flex flex-row gap-3.5 items-stretch'
+                      : 'rounded-2xl border border-slate-200/90 shadow-lg p-4 flex flex-col justify-between';
+
+                    const imgWrapperClass = isMinimal
+                      ? 'relative w-full h-[54%] rounded-none overflow-hidden bg-slate-100 border border-slate-900'
+                      : isDark
+                      ? 'relative w-full h-[52%] rounded-2xl overflow-hidden bg-slate-800 border border-slate-700/80'
+                      : isBadge
+                      ? 'relative w-full h-[54%] rounded-none overflow-hidden bg-emerald-50'
+                      : isHorizontal
+                      ? 'relative w-[44%] h-full rounded-xl overflow-hidden bg-amber-100 border border-amber-200/80 shrink-0'
+                      : 'relative w-full h-[52%] rounded-xl overflow-hidden bg-slate-100';
+
+                    const contentWrapperClass = isBadge
+                      ? 'p-3.5 flex-1 flex flex-col justify-between'
+                      : isHorizontal
+                      ? 'py-0.5 flex-1 flex flex-col justify-between min-w-0'
+                      : 'pt-2.5 flex-1 flex flex-col justify-between';
+
+                    const titleClass = isDark
+                      ? 'font-extrabold text-sm text-white line-clamp-1'
+                      : isMinimal
+                      ? 'font-black text-xs uppercase tracking-wider text-slate-900 line-clamp-1'
+                      : isHorizontal
+                      ? 'font-black text-sm text-amber-950 line-clamp-1'
+                      : 'font-extrabold text-sm text-slate-900 line-clamp-1';
+
+                    const descClass = isDark
+                      ? 'text-[11px] text-slate-300 line-clamp-2 mt-1 leading-snug'
+                      : isHorizontal
+                      ? 'text-[11px] text-amber-900/75 line-clamp-2 mt-1 leading-snug'
+                      : 'text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug';
+
+                    const priceClass = isDark
+                      ? 'font-black text-xs text-amber-300 bg-amber-400/15 px-2 py-0.5 rounded-full border border-amber-400/30 shrink-0'
+                      : isMinimal
+                      ? 'font-black text-xs text-slate-900 bg-slate-100 px-2 py-0.5 border border-slate-900 shrink-0'
+                      : isHorizontal
+                      ? 'font-black text-xs text-amber-900 bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-300 shrink-0'
+                      : 'font-black text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shrink-0';
+
+                    const resolvedBtnColor =
+                      cd.buttonColor ||
+                      (isBadge ? '#059669' : isHorizontal ? '#b45309' : isMinimal ? '#0f172a' : isDark ? '#6366f1' : '#2563eb');
+
+                    const btnRadiusClass = isMinimal
+                      ? 'rounded-none uppercase tracking-wider'
+                      : isBadge || isDark
+                      ? 'rounded-full'
+                      : 'rounded-xl';
+
+                    return (
+                      <div
+                        style={{ backgroundColor: color || (isDark ? '#0f172a' : isHorizontal ? '#fffbeb' : '#ffffff') }}
+                        className={`w-full h-full overflow-hidden ${cardOuterClass}`}
+                      >
+                        <div className={imgWrapperClass}>
+                          <img
+                            src={cd.image}
+                            alt={cd.title}
+                            className="w-full h-full object-cover"
+                          />
+                          {cd.badgeText && (
+                            <span
+                              className={`absolute top-2 left-2 px-2.5 py-0.5 text-[10px] font-black shadow-md ${
+                                isBadge
+                                  ? 'rounded-full bg-emerald-600 text-white'
+                                  : isMinimal
+                                  ? 'rounded-none bg-slate-900 text-white tracking-widest'
+                                  : isDark
+                                  ? 'rounded-full bg-amber-400 text-slate-950 tracking-wider'
+                                  : 'rounded-lg bg-amber-600 text-white'
+                              }`}
+                            >
+                              {cd.badgeText}
                             </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 line-clamp-2 mt-1 leading-snug">
-                            {properties.cardData.description}
-                          </p>
+                          )}
+                          {isBadge && (
+                            <span className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-white/95 text-emerald-700 font-black text-xs shadow-md border border-emerald-200">
+                              {cd.price || 'Rp 0'}
+                            </span>
+                          )}
                         </div>
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (properties.cardData?.buttonLink) {
-                                window.open(properties.cardData.buttonLink, '_blank');
-                              }
-                            }}
-                            className="w-full py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
-                          >
-                            <span>{properties.cardData.buttonText || 'Pesan Sekarang'}</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
+                        <div className={contentWrapperClass}>
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <h4 className={titleClass}>{cd.title}</h4>
+                              {!isBadge && <span className={priceClass}>{cd.price || 'Rp 0'}</span>}
+                            </div>
+                            <p className={descClass}>{cd.description}</p>
+                          </div>
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const resolvedTargetCanvas = properties.targetCanvasId || cd.targetCanvasId;
+                                if (properties.linkType === 'canvas' && resolvedTargetCanvas) {
+                                  handleNavClick(resolvedTargetCanvas);
+                                } else if (properties.linkType === 'wa' && properties.waNumber) {
+                                  const clean = properties.waNumber.replace(/[^0-9]/g, '');
+                                  const formatted = clean.startsWith('0') ? '62' + clean.slice(1) : clean;
+                                  const msg = `Halo, saya ingin memesan ${cd.title || 'produk ini'}.`;
+                                  window.open(`https://wa.me/${formatted}?text=${encodeURIComponent(msg)}`, '_blank');
+                                } else if (properties.linkType === 'url' && properties.linkUrl) {
+                                  window.open(properties.linkUrl, '_blank');
+                                } else if (cd.buttonLink) {
+                                  window.open(cd.buttonLink, '_blank');
+                                } else if (resolvedTargetCanvas) {
+                                  handleNavClick(resolvedTargetCanvas);
+                                }
+                              }}
+                              style={{
+                                background: isDark
+                                  ? 'linear-gradient(90deg, #4f46e5 0%, #2563eb 100%)'
+                                  : resolvedBtnColor
+                              }}
+                              className={`w-full py-2 px-3 ${btnRadiusClass} hover:opacity-95 text-white font-extrabold text-xs shadow-sm flex items-center justify-center gap-1.5 transition`}
+                            >
+                              <span>{cd.buttonText || 'Pesan Sekarang'}</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* BUTTON */}
                   {category === 'BUTTON' && (

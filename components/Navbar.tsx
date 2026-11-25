@@ -122,7 +122,7 @@ export default function Navbar() {
                 NexaWeb<span className="text-blue-600">.ai</span>
               </span>
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                Website Builder UMKM
+                Website Builder
               </span>
             </div>
           </Link>

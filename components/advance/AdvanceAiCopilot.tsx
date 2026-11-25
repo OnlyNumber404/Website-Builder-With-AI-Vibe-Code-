@@ -335,7 +335,7 @@ export default function AdvanceAiCopilot({
           <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-3.5 shadow-lg space-y-2.5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[11px] font-extrabold">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                 <span>AI Sedang Bekerja di Kanvas</span>
               </div>
               <span className="text-[10px] font-mono font-bold bg-white/20 px-2 py-0.5 rounded-full">

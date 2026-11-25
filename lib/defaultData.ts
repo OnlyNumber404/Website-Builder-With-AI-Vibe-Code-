@@ -373,7 +373,7 @@ export const TESTIMONIALS = [
     age: 'Owner Brand Fashion Lokal',
     business: 'Galeri Batik Sekar Ayu (Solo)',
     photo: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
-    quote: 'Advance Designer Mode-nya seperti Canva—tinggal drag & drop dengan garis bantu otomatis! Katalog batik kami jadi terlihat sangat profesional dan meningkatkan kepercayaan pembeli dari luar kota.',
-    highlight: 'Desain Bebas Ala Canva'
+    quote: 'Advance Designer Mode-nya sangat fleksibel—tinggal drag & drop dengan garis bantu otomatis! Katalog batik kami jadi terlihat sangat profesional dan meningkatkan kepercayaan pembeli dari luar kota.',
+    highlight: 'Desain Bebas Visual'
   }
 ];

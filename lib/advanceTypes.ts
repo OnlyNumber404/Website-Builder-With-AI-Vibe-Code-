@@ -12,6 +12,8 @@ export type ShapeType =
   | 'hexagon'
   | 'line';
 
+export type ProductCardVariant = 'modern' | 'badge' | 'warm' | 'minimal' | 'dark';
+
 export interface ProductCardData {
   title: string;
   description: string;
@@ -20,6 +22,9 @@ export interface ProductCardData {
   buttonText: string;
   buttonLink?: string;
   targetCanvasId?: string;
+  cardVariant?: ProductCardVariant;
+  badgeText?: string;
+  buttonColor?: string;
 }
 
 export interface NavItemData {
@@ -85,6 +90,8 @@ export interface CanvasElement {
   width: number;
   height: number;
   color: string; // hex
+  locked?: boolean;
+  groupId?: string;
   properties: CanvasElementProperties;
 }
 

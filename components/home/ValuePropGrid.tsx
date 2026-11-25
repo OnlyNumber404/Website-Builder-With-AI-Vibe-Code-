@@ -25,7 +25,7 @@ export default function ValuePropGrid() {
       icon: Layers,
       badge: '2 Mode Editor Studio',
       title: 'Template & Kanvas Bebas',
-      headline: 'Mau Cepat atau Kustom Bebas Ala Canva, Bisa!',
+      headline: 'Mau Cepat atau Kustom Bebas di Kanvas Visual, Bisa!',
       description: 'Gunakan Mode Template untuk langsung siap jualan, atau buka Advance Designer Mode untuk merancang tata letak bebas multi-kanvas lengkap dengan garis bantu Smart Snap dan toolbar tipografi modern.',
       features: [
         'Drag & drop bebas + Smart Alignment & Resize Snap',

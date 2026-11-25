@@ -3,8 +3,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'NexaWeb.ai - Website Builder AI Modern untuk UMKM Indonesia',
-  description: 'Platform AI pembuat website toko & katalog bisnis modern untuk seluruh pelaku UMKM Indonesia. Tanpa coding, dilengkapi Mode Template, Advance Designer Mode ala Canva, AI Copilot, dan integrasi WhatsApp.',
-  keywords: ['website builder umkm', 'bikin website toko', 'ai website builder indonesia', 'nexaweb', 'canva website builder'],
+  description: 'Platform AI pembuat website toko & katalog bisnis modern untuk seluruh pelaku UMKM Indonesia. Tanpa coding, dilengkapi Mode Template, Advance Designer Mode berbasis kanvas visual, AI Copilot, dan integrasi WhatsApp.',
+  keywords: ['website builder umkm', 'bikin website toko', 'ai website builder indonesia', 'nexaweb', 'visual website builder'],
   icons: {
     icon: '/logo-icon.svg',
     shortcut: '/logo-icon.svg',

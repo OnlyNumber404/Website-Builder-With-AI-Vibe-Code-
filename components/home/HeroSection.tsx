@@ -46,7 +46,7 @@ export default function HeroSection() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal"
         >
-          Bangun toko online, katalog produk, dan profil bisnis yang kredibel tanpa coding. Pilih <strong className="text-slate-800">Mode Template Instan</strong> atau berkreasi bebas di <strong className="text-slate-800">Advance Designer Mode</strong> bergaya Canva—lengkap dengan AI Copilot dan tombol order WhatsApp.
+          Bangun toko online, katalog produk, dan profil bisnis yang kredibel tanpa coding. Pilih <strong className="text-slate-800">Mode Template Instan</strong> atau berkreasi bebas di <strong className="text-slate-800">Advance Designer Mode</strong> berbasis kanvas visual—lengkap dengan AI Copilot dan tombol order WhatsApp.
         </motion.p>
 
         {/* Tombol Aksi Utama (CTA) */}
