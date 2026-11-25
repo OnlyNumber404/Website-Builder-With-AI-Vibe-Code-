@@ -99,20 +99,127 @@ body {
 }
 
 .nav-link:hover {
-  color: #7c3aed;
+  color: #2563eb;
 }
 
-@media (max-width: 1024px) {
+/* Tablet Scaling (769px - 1024px) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  body {
+    overflow-x: hidden;
+  }
   .canvas-viewport {
-    transform: scale(0.85);
-    transform-origin: top center;
+    width: 100%;
+    max-width: 100%;
+    align-items: center;
+  }
+  .canvas-page {
+    max-width: 100%;
   }
 }
 
+/* ===================================================================== */
+/* MOBILE RESPONSIVE FLEX LAYOUT (HP <= 768px)                           */
+/* Otomatis menyusun ulang kanvas bebas menjadi kolom Flexbox yang rapi! */
+/* ===================================================================== */
 @media (max-width: 768px) {
+  body {
+    background-color: #ffffff;
+    overflow-x: hidden;
+  }
+
   .canvas-viewport {
-    transform: scale(0.55);
-    transform-origin: top center;
+    width: 100% !important;
+    max-width: 100% !important;
+    transform: none !important;
+  }
+
+  .canvas-page {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1.125rem !important;
+    padding: 1.5rem 1rem 2rem !important;
+    box-shadow: none !important;
+  }
+
+  .canvas-element {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  .navbar-container {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 56px;
+    padding: 0.75rem 1rem !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    gap: 0.75rem !important;
+    border-radius: 1rem !important;
+  }
+
+  .nav-links {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.625rem 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.25);
+  }
+
+  .text-element {
+    height: auto !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 0.125rem 0.25rem;
+    font-size: clamp(0.95rem, 4.4vw, 1.85rem) !important;
+    line-height: 1.35 !important;
+  }
+
+  .image-element {
+    width: 100% !important;
+    max-width: 480px !important;
+    height: auto !important;
+    aspect-ratio: 16 / 10;
+  }
+
+  .product-card {
+    width: 100% !important;
+    max-width: 440px !important;
+    height: auto !important;
+    min-height: 360px !important;
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  .product-card > div:first-child {
+    width: 100% !important;
+    height: 200px !important;
+  }
+
+  .btn-element {
+    width: 100% !important;
+    max-width: 320px !important;
+    min-height: 48px !important;
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.9rem !important;
+  }
+
+  .shape-element:not([data-has-mask="true"]) {
+    display: none !important;
+  }
+
+  .shape-element[data-has-mask="true"] {
+    width: 100% !important;
+    max-width: 320px !important;
+    height: 260px !important;
   }
 }
 `;
@@ -123,14 +230,22 @@ body {
   canvases.forEach((canvas) => {
     let elementsHtml = '';
 
-    canvas.elements.forEach((el) => {
+    // Urutkan elemen untuk aliran baca yang rapi di HP (Navbar di paling atas, lalu urut Y -> X)
+    const sortedElements = [...canvas.elements].sort((a, b) => {
+      if (a.category === 'NAV' && b.category !== 'NAV') return -1;
+      if (b.category === 'NAV' && a.category !== 'NAV') return 1;
+      if (Math.abs(a.posY - b.posY) > 28) return a.posY - b.posY;
+      return a.posX - b.posX;
+    });
+
+    sortedElements.forEach((el) => {
       const { category, properties, color, posX, posY, width, height } = el;
 
       if (category === 'TEXT') {
         const alignVal = properties.textAlign || 'center';
         const justifyVal = alignVal === 'left' ? 'flex-start' : alignVal === 'right' ? 'flex-end' : 'center';
         elementsHtml += `
-          <div class="canvas-element" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${properties.opacity !== undefined ? properties.opacity : 1}; font-family: ${properties.font || 'inherit'}; font-size: ${properties.fontSize || 16}px; font-weight: ${properties.fontWeight || 'normal'}; text-align: ${alignVal}; color: ${color || '#000000'}; display: flex; align-items: center; justify-content: ${justifyVal}; word-break: break-word; line-height: 1.35;">
+          <div class="canvas-element text-element" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${properties.opacity !== undefined ? properties.opacity : 1}; font-family: ${properties.font || 'inherit'}; font-size: ${properties.fontSize || 16}px; font-weight: ${properties.fontWeight || 'normal'}; text-align: ${alignVal}; color: ${color || '#000000'}; display: flex; align-items: center; justify-content: ${justifyVal}; word-break: break-word; line-height: 1.35;">
             <span style="width: 100%;">${properties.text || ''}</span>
           </div>
         `;
@@ -181,8 +296,9 @@ body {
           maskedHtml = `<div style="position: absolute; inset: 0; overflow: hidden; ${clipVal ? `clip-path: ${clipVal};` : ''}">${layersHtml}</div>`;
         }
 
+        const hasMask = Boolean(properties.maskedLayers && properties.maskedLayers.length > 0);
         elementsHtml += `
-          <div class="canvas-element" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${opacity}; filter: ${shadowFilter};">
+          <div class="canvas-element shape-element" ${hasMask ? 'data-has-mask="true"' : ''} style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${opacity}; filter: ${shadowFilter};">
             ${shapeInnerHtml}
             ${maskedHtml}
           </div>
@@ -190,7 +306,7 @@ body {
       } else if (category === 'IMAGE') {
         const imgClip = getShapeClipPath(properties.maskShape, properties.borderRadius);
         elementsHtml += `
-          <div class="canvas-element" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${properties.opacity !== undefined ? properties.opacity : 1}; ${imgClip ? `clip-path: ${imgClip};` : `border-radius: ${properties.borderRadius || 12}px;`} overflow: hidden;">
+          <div class="canvas-element image-element" style="left: ${posX}px; top: ${posY}px; width: ${width}px; height: ${height}px; opacity: ${properties.opacity !== undefined ? properties.opacity : 1}; ${imgClip ? `clip-path: ${imgClip};` : `border-radius: ${properties.borderRadius || 12}px;`} overflow: hidden;">
             <img src="${properties.imageUrl || ''}" alt="Gambar" style="width: 100%; height: 100%; object-fit: ${properties.objectFit || 'cover'};" />
           </div>
         `;

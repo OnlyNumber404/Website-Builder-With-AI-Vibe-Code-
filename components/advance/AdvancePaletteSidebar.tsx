@@ -390,7 +390,7 @@ export default function AdvancePaletteSidebar({
   ] as const;
 
   return (
-    <div className="flex h-full z-20">
+    <div className="flex md:h-full z-30 md:z-20 shrink-0">
       {/* Hidden File Input for Image Upload (AC-IMG-01) */}
       <input
         ref={fileInputRef}
@@ -401,10 +401,10 @@ export default function AdvancePaletteSidebar({
       />
 
       {/* ------------------------------------------------------------------- */}
-      {/* DOCK KIRI: IKON KATEGORI PALET (Canva-like Dock)                    */}
+      {/* DOCK PALET: BOTTOM BAR DI HP (< md), SIDE DOCK KIRI DI DESKTOP      */}
       {/* ------------------------------------------------------------------- */}
-      <div className="w-18 bg-slate-900 flex flex-col items-center py-3 border-r border-slate-800 text-white shrink-0 select-none">
-        <div className="space-y-1.5 w-full px-2">
+      <div className="fixed bottom-0 inset-x-0 h-[60px] md:static md:h-full md:w-[72px] bg-slate-900 flex flex-row md:flex-col items-center justify-around md:justify-start md:py-3 border-t md:border-t-0 md:border-r border-slate-800 text-white shrink-0 select-none z-40 px-1 md:px-0">
+        <div className="flex flex-row md:flex-col items-center justify-around md:justify-start md:space-y-1.5 w-full md:px-2 gap-0.5 md:gap-0">
           {navCategories.map((cat) => {
             const Icon = cat.icon;
             const isActive = activeTab === cat.id;
@@ -413,15 +413,15 @@ export default function AdvancePaletteSidebar({
                 key={cat.id}
                 type="button"
                 onClick={() => setActiveTab(activeTab === cat.id ? null : cat.id)}
-                className={`w-full py-2.5 px-1 rounded-xl flex flex-col items-center justify-center gap-1 transition-all text-xs font-semibold ${
+                className={`flex-1 md:flex-none md:w-full py-1.5 md:py-2.5 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 md:gap-1 transition-all text-xs font-semibold ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
                 }`}
                 title={cat.label}
               >
-                <Icon className="w-5 h-5" />
-                <span className="text-[10px] tracking-tight">{cat.label}</span>
+                <Icon className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="text-[9px] md:text-[10px] tracking-tight leading-none">{cat.label}</span>
               </button>
             );
           })}
@@ -429,13 +429,17 @@ export default function AdvancePaletteSidebar({
       </div>
 
       {/* ------------------------------------------------------------------- */}
-      {/* DRAWER KANAN DARI DOCK: ISI DETAIL KATEGORI (AC-ADV-02)             */}
+      {/* DRAWER KOMPONEN: BOTTOM SHEET DI HP (< md), SIDE DRAWER DI DESKTOP  */}
       {/* ------------------------------------------------------------------- */}
       {activeTab && (
         <aside
           aria-label="Panel Laci Komponen"
-          className="w-72 bg-white border-r border-slate-200/90 shadow-xl flex flex-col h-full overflow-hidden animate-in slide-in-from-left-2 duration-150"
+          className="fixed md:static bottom-[60px] md:bottom-auto inset-x-0 md:inset-x-auto max-h-[58vh] md:max-h-none md:w-72 bg-white rounded-t-3xl md:rounded-none border-t md:border-t-0 md:border-r border-slate-200/90 shadow-2xl md:shadow-xl flex flex-col md:h-full overflow-hidden z-40 md:z-auto animate-in slide-in-from-bottom-4 md:slide-in-from-left-2 duration-150"
         >
+          {/* Mobile Bottom-Sheet Drag Indicator */}
+          <div className="md:hidden pt-2 pb-0.5 flex justify-center bg-slate-50/60">
+            <span className="w-10 h-1 rounded-full bg-slate-300" />
+          </div>
           {/* Header Drawer */}
           <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
             <div className="flex items-center gap-2">

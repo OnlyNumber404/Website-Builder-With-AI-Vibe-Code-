@@ -185,7 +185,7 @@ export default function AdvanceAiCopilot({
   return (
     <aside
       aria-label="Panel Asisten Gemini AI"
-      className="w-80 h-full shrink-0 bg-white border-l border-slate-200/90 flex flex-col overflow-hidden shadow-xl z-20"
+      className="fixed md:static inset-y-0 right-0 w-[86vw] max-w-[330px] md:w-80 h-full shrink-0 bg-white border-l border-slate-200/90 flex flex-col overflow-hidden shadow-2xl md:shadow-xl z-40 md:z-20"
     >
       {/* Header Panel AI */}
       <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 to-blue-50/50">

@@ -187,6 +187,14 @@ export default function StudioPage() {
   const [isEditorMode, setIsEditorMode] = useState(true);
   const [isPaletteOpen, setIsPaletteOpen] = useState(true);
   const [isAiChatOpen, setIsAiChatOpen] = useState(true);
+
+  // Auto-collapse sidebars on mobile/tablet so canvas gets full screen width
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsPaletteOpen(false);
+      setIsAiChatOpen(false);
+    }
+  }, []);
   const [sidebarTab, setSidebarTab] = useState<'items' | 'sections'>('items');
   const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
 
@@ -950,7 +958,7 @@ export default function StudioPage() {
     <div className="fixed inset-0 h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900 font-sans select-none z-0">
       
       {/* 1. TOP STUDIO NAVIGATION BAR (ZERO HORIZONTAL SCROLL, RESPONSIF & TERSTRUKTUR) */}
-      <header className="h-[64px] w-full bg-white border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between shrink-0 z-30 shadow-xs gap-2">
+      <header className="h-[60px] sm:h-[64px] w-full bg-white border-b border-slate-200 px-2.5 sm:px-4 flex items-center justify-between shrink-0 z-30 shadow-xs gap-1.5 sm:gap-2 overflow-x-auto">
         
         {/* KIRI: Brand, Kembali, Palet & Riwayat Kanvas */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -1178,9 +1186,9 @@ export default function StudioPage() {
       {/* 2. BODY BUILDER 3-PANEL (SIDEBAR KIRI, CENTER KANVAS, SIDEBAR KANAN) */}
       <div className="flex-1 w-full flex overflow-hidden relative">
         
-        {/* PANEL KIRI: PALET ITEM & BAGIAN */}
+        {/* PANEL KIRI: PALET ITEM & BAGIAN (Floating Drawer di HP, Docked di Desktop) */}
         {isPaletteOpen && isEditorMode && (
-          <aside className="w-72 sm:w-80 h-full bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-md overflow-hidden">
+          <aside className="fixed lg:static top-[60px] sm:top-[64px] lg:top-auto bottom-0 left-0 w-[85vw] max-w-[320px] lg:w-72 xl:w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 z-40 lg:z-20 shadow-2xl lg:shadow-md overflow-hidden">
             
             {/* Header Tab Palet */}
             <div className="p-3 border-b border-slate-100 bg-slate-50/70">

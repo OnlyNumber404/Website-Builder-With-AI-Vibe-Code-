@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   ExternalLink,
@@ -8,7 +8,8 @@ import {
   Compass,
   ArrowRight,
   Eye,
-  CheckCircle2
+  Monitor,
+  Smartphone
 } from 'lucide-react';
 import {
   AdvanceCanvas,
@@ -29,7 +30,17 @@ export default function AdvancePreviewModal({
   onClose,
   canvases
 }: AdvancePreviewModalProps) {
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
+
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined' && window.innerWidth < 768) {
+      setPreviewDevice('mobile');
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const isMobilePreview = previewDevice === 'mobile';
 
   const handleNavClick = (targetCanvasId?: string) => {
     if (!targetCanvasId) return;
@@ -55,29 +66,59 @@ export default function AdvancePreviewModal({
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-950 animate-in fade-in duration-150">
       {/* Top Bar Preview */}
-      <div className="h-14 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between text-white shrink-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+      <div className="h-14 bg-slate-900 border-b border-slate-800 px-3 sm:px-6 flex items-center justify-between gap-2 text-white shrink-0 z-20">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
             <Eye className="w-4 h-4" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold tracking-tight">Pratinjau Live Website</h3>
-            <p className="text-[10px] text-slate-400">Interaksi tombol & navigasi aktif</p>
+          <div className="min-w-0">
+            <h3 className="text-xs sm:text-sm font-bold tracking-tight truncate">Pratinjau Live Website</h3>
+            <p className="text-[10px] text-slate-400 hidden sm:block">Interaksi tombol &amp; navigasi aktif</p>
           </div>
+        </div>
+
+        {/* Switcher Desktop / HP (Mobile Flex) */}
+        <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700/80 shrink-0">
+          <button
+            type="button"
+            onClick={() => setPreviewDevice('desktop')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+              !isMobilePreview
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+            title="Tampilan Desktop (1000px)"
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Desktop</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewDevice('mobile')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+              isMobilePreview
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+            title="Tampilan HP (Mobile Flex 390px)"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">HP</span>
+          </button>
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition"
+          className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center gap-1.5 transition shrink-0"
         >
           <X className="w-4 h-4" />
-          <span>Tutup Pratinjau</span>
+          <span className="hidden sm:inline">Tutup Pratinjau</span>
         </button>
       </div>
 
-      {/* Viewport Website (Optimized 60fps Opaque Scroll Surface) */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col items-center gap-6 bg-slate-900 will-change-scroll">
+      {/* Viewport Website (Desktop 1000px / Mobile HP 390px Flex) */}
+      <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-8 flex flex-col items-center gap-6 bg-slate-900 will-change-scroll">
         <svg width="0" height="0" className="absolute pointer-events-none" aria-hidden="true">
           <defs>
             <clipPath id="nexa-clip-heart" clipPathUnits="objectBoundingBox">
@@ -85,53 +126,90 @@ export default function AdvancePreviewModal({
             </clipPath>
           </defs>
         </svg>
-        {canvases.map((canvas, cIdx) => (
+        {canvases.map((canvas) => {
+          const orderedElements = isMobilePreview
+            ? [...canvas.elements].sort((a, b) => {
+                if (a.category === 'NAV' && b.category !== 'NAV') return -1;
+                if (b.category === 'NAV' && a.category !== 'NAV') return 1;
+                if (Math.abs(a.posY - b.posY) > 28) return a.posY - b.posY;
+                return a.posX - b.posX;
+              })
+            : canvas.elements;
+
+          return (
           <div
             key={canvas.id}
             id={`preview-canvas-${canvas.id}`}
             style={{
-              width: `${CANVAS_DEFAULT_WIDTH}px`,
-              minHeight: `${canvas.height || CANVAS_DEFAULT_HEIGHT}px`,
+              width: isMobilePreview ? '100%' : `${CANVAS_DEFAULT_WIDTH}px`,
+              maxWidth: isMobilePreview ? '390px' : undefined,
+              minHeight: isMobilePreview ? undefined : `${canvas.height || CANVAS_DEFAULT_HEIGHT}px`,
               backgroundColor: canvas.backgroundColor || '#ffffff',
               backgroundImage: canvas.backgroundImage ? `url(${canvas.backgroundImage})` : undefined,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               contain: 'layout paint'
             }}
-            className="relative shadow-2xl rounded-2xl overflow-hidden border border-slate-700/50 shrink-0"
+            className={
+              isMobilePreview
+                ? 'relative shadow-2xl rounded-[28px] overflow-hidden border-[6px] border-slate-800 shrink-0 flex flex-col items-center gap-4 px-4 py-5'
+                : 'relative shadow-2xl rounded-2xl overflow-hidden border border-slate-700/50 shrink-0'
+            }
           >
-            {canvas.elements.map((el) => {
+            {orderedElements.map((el) => {
               const { category, properties, color } = el;
+              const isDecorativeShape =
+                category === 'SHAPE' && !(properties.maskedLayers && properties.maskedLayers.length > 0);
+              if (isMobilePreview && isDecorativeShape) return null;
+
+              const mobileWrapperClass =
+                category === 'BUTTON'
+                  ? 'w-full max-w-[320px] min-h-[46px]'
+                  : category === 'IMAGE'
+                  ? 'w-full aspect-[16/10]'
+                  : category === 'PRODUCT'
+                  ? 'w-full min-h-[360px]'
+                  : category === 'SHAPE'
+                  ? 'w-full h-[240px]'
+                  : 'w-full';
 
               return (
                 <div
                   key={el.id}
-                  style={{
-                    left: `${el.posX}px`,
-                    top: `${el.posY}px`,
-                    width: `${el.width}px`,
-                    height: `${el.height}px`,
-                    position: 'absolute',
-                    opacity: properties.opacity !== undefined ? properties.opacity : 1
-                  }}
+                  style={
+                    isMobilePreview
+                      ? { opacity: properties.opacity !== undefined ? properties.opacity : 1 }
+                      : {
+                          left: `${el.posX}px`,
+                          top: `${el.posY}px`,
+                          width: `${el.width}px`,
+                          height: `${el.height}px`,
+                          position: 'absolute',
+                          opacity: properties.opacity !== undefined ? properties.opacity : 1
+                        }
+                  }
+                  className={isMobilePreview ? `relative ${mobileWrapperClass}` : undefined}
                 >
                   {/* TEXT (Exact Left/Center/Right Alignment Match) */}
                   {category === 'TEXT' && (
                     <div
                       style={{
                         fontFamily: properties.font || 'Inter, sans-serif',
-                        fontSize: `${properties.fontSize || 16}px`,
+                        fontSize: isMobilePreview
+                          ? `${Math.min(properties.fontSize || 16, 26)}px`
+                          : `${properties.fontSize || 16}px`,
                         fontWeight: properties.fontWeight || 'normal',
                         fontStyle: properties.fontStyle || 'normal',
                         textDecoration: properties.textDecoration || 'none',
                         textTransform: properties.textTransform || 'none',
-                        textAlign: properties.textAlign || 'center',
-                        justifyContent:
-                          properties.textAlign === 'left'
-                            ? 'flex-start'
-                            : properties.textAlign === 'right'
-                            ? 'flex-end'
-                            : 'center',
+                        textAlign: isMobilePreview ? 'center' : properties.textAlign || 'center',
+                        justifyContent: isMobilePreview
+                          ? 'center'
+                          : properties.textAlign === 'left'
+                          ? 'flex-start'
+                          : properties.textAlign === 'right'
+                          ? 'flex-end'
+                          : 'center',
                         color: color || '#000000'
                       }}
                       className="w-full h-full flex items-center break-words leading-snug"
@@ -228,7 +306,7 @@ export default function AdvancePreviewModal({
                   {category === 'PRODUCT' && properties.cardData && (() => {
                     const cd = properties.cardData;
                     const variant = cd.cardVariant || 'modern';
-                    const isHorizontal = variant === 'warm';
+                    const isHorizontal = variant === 'warm' && !isMobilePreview;
                     const isBadge = variant === 'badge';
                     const isMinimal = variant === 'minimal';
                     const isDark = variant === 'dark';
@@ -401,11 +479,15 @@ export default function AdvancePreviewModal({
                         backgroundColor: color || '#ffffff',
                         color: properties.color || '#0f172a'
                       }}
-                      className={`w-full h-full px-6 flex items-center justify-between border border-slate-200/80 shadow-md ${
-                        properties.navVariant === 'floating'
-                          ? 'rounded-full backdrop-blur-md'
-                          : 'rounded-xl'
-                      }`}
+                      className={`w-full ${
+                        isMobilePreview
+                          ? 'min-h-[54px] px-4 py-2.5 flex-wrap gap-2 justify-center rounded-2xl'
+                          : `h-full px-6 justify-between ${
+                              properties.navVariant === 'floating'
+                                ? 'rounded-full backdrop-blur-md'
+                                : 'rounded-xl'
+                            }`
+                      } flex items-center border border-slate-200/80 shadow-md`}
                     >
                       <div className="flex items-center gap-2.5">
                         {properties.navLogoUrl && (
@@ -421,7 +503,7 @@ export default function AdvancePreviewModal({
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className={isMobilePreview ? 'flex items-center flex-wrap justify-center gap-3 w-full pt-2 border-t border-slate-200/40' : 'flex items-center gap-4'}>
                         {properties.navItems?.map((item) => (
                           <button
                             key={item.id}
@@ -439,7 +521,8 @@ export default function AdvancePreviewModal({
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -130,21 +130,22 @@ export default function AdvanceContextualToolbar({
       ? [selectedElement]
       : [];
 
-  // Jika tidak ada elemen yang dipilih (Floating Status Bar)
+  // Jika tidak ada elemen yang dipilih (Floating Status Bar — Single-Line & Responsif HP)
   if (effectiveSelected.length === 0) {
     return (
-      <div className="mx-4 my-2 h-12 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl px-5 flex items-center justify-between text-xs text-slate-500 shadow-md shadow-slate-900/5 z-20 shrink-0">
-        <div className="flex items-center gap-2.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+      <div className="mx-2.5 sm:mx-4 my-1.5 sm:my-2 min-h-[42px] sm:h-12 bg-white/95 backdrop-blur-md border border-slate-200 rounded-xl sm:rounded-2xl px-3 sm:px-5 py-1.5 flex items-center justify-between gap-2 text-xs text-slate-500 shadow-sm shadow-slate-900/5 z-20 shrink-0 whitespace-nowrap overflow-x-auto">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
           <span className="font-semibold text-slate-700">
-            Kanvas Aktif: <strong className="text-slate-900 font-extrabold">{activeCanvas?.title || `Kanvas ${activeCanvas?.pageIndex || 1}`}</strong>
+            <span className="hidden sm:inline">Kanvas Aktif: </span>
+            <strong className="text-slate-900 font-extrabold">{activeCanvas?.title || `Kanvas ${activeCanvas?.pageIndex || 1}`}</strong>
           </span>
-          <span className="text-slate-300">|</span>
-          <span className="text-slate-500 font-medium">Klik elemen atau tahan klik kiri & tarik di kanvas untuk multi-select</span>
+          <span className="text-slate-300 hidden lg:inline">|</span>
+          <span className="text-slate-500 font-medium hidden lg:inline">Klik elemen atau tahan klik kiri &amp; tarik di kanvas untuk multi-select</span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-400">
-          <span className="font-medium text-slate-500">Ukuran: 1000 × {activeCanvas?.height || 650}px</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200/80">Visual Editor</span>
+        <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-slate-400 shrink-0">
+          <span className="font-medium text-slate-500">1000 × {activeCanvas?.height || 650}px</span>
+          <span className="px-2 sm:px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200/80 text-[10px] sm:text-xs">Visual Editor</span>
         </div>
       </div>
     );
@@ -452,7 +453,7 @@ export default function AdvanceContextualToolbar({
   return (
     <div
       ref={toolbarRef}
-      className="mx-4 my-2 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/5 px-4 py-2 min-h-[58px] flex flex-wrap items-center justify-between text-xs gap-3 shrink-0 z-30 relative overflow-visible animate-in fade-in slide-in-from-top-1 duration-150"
+      className="mx-2.5 sm:mx-4 my-1.5 sm:my-2 bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-lg shadow-slate-900/5 px-3 sm:px-4 py-1.5 sm:py-2 min-h-[50px] sm:min-h-[58px] flex flex-nowrap md:flex-wrap items-center justify-between text-xs gap-2.5 sm:gap-3 shrink-0 z-30 relative overflow-x-auto md:overflow-visible animate-in fade-in slide-in-from-top-1 duration-150"
     >
       {/* Hidden File Input for Replace Image */}
       <input
